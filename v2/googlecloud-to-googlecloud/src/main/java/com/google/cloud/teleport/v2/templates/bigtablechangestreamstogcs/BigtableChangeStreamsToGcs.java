@@ -17,6 +17,8 @@
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 
 import com.google.cloud.Timestamp;
+import com.google.cloud.bigtable.beam.CloudBigtableIO;
+import com.google.cloud.bigtable.beam.CloudBigtableTableConfiguration;
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
@@ -30,20 +32,29 @@ import com.google.cloud.teleport.v2.utils.DurationUtils;
 import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
+import org.apache.beam.sdk.io.GenerateSequence;
 import org.apache.beam.sdk.io.gcp.bigtable.BigtableIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
+import org.apache.beam.sdk.transforms.DoFn;
+import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.Values;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
 import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
+import org.apache.beam.sdk.values.PCollection;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.hbase.client.Mutation;
+import org.apache.hadoop.hbase.client.Put;
+import org.apache.hadoop.hbase.util.Bytes;
+import org.joda.time.Duration;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -63,6 +74,7 @@ import org.slf4j.LoggerFactory;
     contactInformation = "https://cloud.google.com/support",
     optionsClass = BigtableChangeStreamsToGcsOptions.class)
 public class BigtableChangeStreamsToGcs {
+
   private static final Logger LOG = LoggerFactory.getLogger(BigtableChangeStreamsToGcs.class);
   private static final String USE_RUNNER_V2_EXPERIMENT = "use_runner_v2";
 
@@ -77,6 +89,32 @@ public class BigtableChangeStreamsToGcs {
             .as(BigtableChangeStreamsToGcsOptions.class);
 
     run(options);
+  }
+
+  private static void addCbtChangeProducer(Pipeline pipeline, BigtableChangeStreamsToGcsOptions options) {
+    int kbPerRow = 10;
+    int rate     = 20000;
+    int numRows  = 50000000;
+    String columnFamily = "cf";
+
+    String generateLabel = String.format("Generate some data: %d rows", numRows);
+    String mutationLabel = String
+        .format("Create mutations that write %dKB to each row", kbPerRow);
+
+    PCollection<Mutation> mutations = pipeline
+        .apply(generateLabel, GenerateSequence.from(0).to(numRows)
+            .withRate(rate, Duration.standardSeconds(1)))
+        .apply(mutationLabel,
+            ParDo.of(new CreateMutationFn(kbPerRow * 1024L, columnFamily)));
+
+    mutations.apply(
+        String.format("Write data to table %s", options.getBigtableReadTableId()),
+        CloudBigtableIO.writeToTable(new CloudBigtableTableConfiguration.Builder()
+            .withProjectId(options.getProject())
+            .withInstanceId(options.getBigtableReadInstanceId())
+            .withTableId(options.getBigtableReadTableId())
+            .build())
+    );
   }
 
   private static String getProjectId(BigtableChangeStreamsToGcsOptions options) {
@@ -163,10 +201,13 @@ public class BigtableChangeStreamsToGcs {
                 .setBigtableUtils(bigtableUtils).build()
         );
 
+    addCbtChangeProducer(pipeline, options);
+
     return pipeline.run();
   }
 
-  private static void validateOutputDirectoryAccess(BigtableChangeStreamsToGcsOptions options) throws IllegalArgumentException {
+  private static void validateOutputDirectoryAccess(BigtableChangeStreamsToGcsOptions options)
+      throws IllegalArgumentException {
     Matcher matcher = Pattern.compile(GCS_OUTPUT_DIRECTORY_REGEX)
         .matcher(options.getGcsOutputDirectory());
 
@@ -182,10 +223,9 @@ public class BigtableChangeStreamsToGcs {
     }
 
     Storage storage = StorageOptions.newBuilder()
-                  .setProjectId(options.getProject())
-                  .build()
-                  .getService();
-
+        .setProjectId(options.getProject())
+        .build()
+        .getService();
 
     String testFile = path + UUID.randomUUID();
 
@@ -195,7 +235,8 @@ public class BigtableChangeStreamsToGcs {
       storage.create(blobInfo, new byte[0]);
       fileCreated = true;
     } catch (Exception e) {
-      throw new IllegalArgumentException("Unable to ensure write access for the output directory: " + options.getGcsOutputDirectory());
+      throw new IllegalArgumentException("Unable to ensure write access for the output directory: "
+          + options.getGcsOutputDirectory());
     } finally {
       if (fileCreated) {
         try {
@@ -213,6 +254,41 @@ public class BigtableChangeStreamsToGcs {
       return null;
     } else {
       return Instant.ofEpochMilli(timestamp.getSeconds() * 1000 + timestamp.getNanos() / 1000000);
+    }
+  }
+
+  static class CreateMutationFn extends DoFn<Long, Mutation> {
+
+    private final long rowSize;
+    private final Random random = new Random();
+    private final String columnFamily;
+
+
+    public CreateMutationFn(long rowSize, String columnFamily) {
+      this.rowSize = rowSize;
+      this.columnFamily = columnFamily;
+    }
+
+    @ProcessElement
+    public void processElement(@Element Long rowkey, OutputReceiver<Mutation> out) {
+      long timestamp = System.currentTimeMillis();
+
+      // Pad and reverse the rowkey for more distributed writes
+      String numberFormat = "%0" + 30 + "d";
+      String paddedRowkey = String.format(numberFormat, rowkey);
+      String reversedRowkey = new StringBuilder(paddedRowkey).reverse().toString();
+      Put row = new Put(Bytes.toBytes(reversedRowkey));
+
+      // Generate random bytes
+      byte[] randomData = new byte[(int) rowSize];
+
+      random.nextBytes(randomData);
+      row.addColumn(
+          Bytes.toBytes(columnFamily),
+          Bytes.toBytes("C"),
+          timestamp,
+          randomData);
+      out.output(row);
     }
   }
 }
