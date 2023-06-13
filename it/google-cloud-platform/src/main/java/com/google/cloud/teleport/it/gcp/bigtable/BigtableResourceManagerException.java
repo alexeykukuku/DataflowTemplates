@@ -16,10 +16,14 @@
 package com.google.cloud.teleport.it.gcp.bigtable;
 
 /**
- * Custom exception for {@link com.google.cloud.teleport.it.bigtable.BigtableResourceManager}
+ * Custom exception for {@link com.google.cloud.teleport.it.gcp.bigtable.BigtableResourceManager}
  * implementations.
  */
 public class BigtableResourceManagerException extends RuntimeException {
+
+  public BigtableResourceManagerException(String errorMessage) {
+    super(errorMessage);
+  }
 
   public BigtableResourceManagerException(String errorMessage, Throwable err) {
     super(errorMessage, err);

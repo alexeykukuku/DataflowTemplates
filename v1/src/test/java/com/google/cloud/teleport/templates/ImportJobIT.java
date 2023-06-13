@@ -15,10 +15,10 @@
  */
 package com.google.cloud.teleport.templates;
 
-import static com.google.cloud.teleport.it.common.matchers.TemplateAsserts.assertThatPipeline;
-import static com.google.cloud.teleport.it.common.matchers.TemplateAsserts.assertThatResult;
 import static com.google.cloud.teleport.it.gcp.bigtable.BigtableResourceManagerUtils.generateTableId;
 import static com.google.cloud.teleport.it.gcp.bigtable.matchers.BigtableAsserts.assertThatBigtableRecords;
+import static com.google.cloud.teleport.it.truthmatchers.PipelineAsserts.assertThatPipeline;
+import static com.google.cloud.teleport.it.truthmatchers.PipelineAsserts.assertThatResult;
 
 import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.teleport.it.common.PipelineLauncher;
@@ -26,6 +26,7 @@ import com.google.cloud.teleport.it.common.PipelineOperator;
 import com.google.cloud.teleport.it.common.utils.ResourceManagerUtils;
 import com.google.cloud.teleport.it.gcp.TemplateTestBase;
 import com.google.cloud.teleport.it.gcp.bigtable.BigtableResourceManager;
+import com.google.cloud.teleport.metadata.SkipDirectRunnerTest;
 import com.google.cloud.teleport.metadata.TemplateIntegrationTest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
@@ -40,7 +41,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Integration test for {@link ImportJobPlaceholder} classic template. */
-@Category(TemplateIntegrationTest.class)
+@Category({TemplateIntegrationTest.class, SkipDirectRunnerTest.class})
 @TemplateIntegrationTest(ImportJobPlaceholder.class)
 @RunWith(JUnit4.class)
 public class ImportJobIT extends TemplateTestBase {

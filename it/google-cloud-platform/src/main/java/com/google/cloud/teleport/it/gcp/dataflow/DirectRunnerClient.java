@@ -18,6 +18,7 @@ package com.google.cloud.teleport.it.gcp.dataflow;
 import static com.google.cloud.teleport.it.common.logging.LogStrings.formatForLogging;
 
 import com.google.api.services.dataflow.model.Job;
+import com.google.api.services.dataflow.model.JobMessage;
 import com.google.auth.Credentials;
 import com.google.cloud.teleport.it.common.PipelineLauncher;
 import java.io.IOException;
@@ -110,6 +111,12 @@ public class DirectRunnerClient implements PipelineLauncher {
   }
 
   @Override
+  public List<JobMessage> listMessages(
+      String project, String region, String jobId, String minimumImportance) {
+    return new ArrayList<>();
+  }
+
+  @Override
   public Job cancelJob(String project, String region, String jobId) {
     LOG.warn("Cancelling direct runner job {}.", jobId);
 
@@ -146,7 +153,7 @@ public class DirectRunnerClient implements PipelineLauncher {
   public static final class Builder {
 
     private Credentials credentials;
-    private Class<?> mainClass;
+    private final Class<?> mainClass;
 
     private Builder(Class<?> mainClass) {
       this.mainClass = mainClass;

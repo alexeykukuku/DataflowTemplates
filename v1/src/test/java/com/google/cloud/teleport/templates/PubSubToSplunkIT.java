@@ -15,11 +15,11 @@
  */
 package com.google.cloud.teleport.templates;
 
-import static com.google.cloud.teleport.it.common.matchers.TemplateAsserts.assertThatPipeline;
-import static com.google.cloud.teleport.it.common.matchers.TemplateAsserts.assertThatResult;
 import static com.google.cloud.teleport.it.splunk.SplunkResourceManagerUtils.splunkEventToMap;
 import static com.google.cloud.teleport.it.splunk.matchers.SplunkAsserts.assertThatSplunkEvents;
 import static com.google.cloud.teleport.it.splunk.matchers.SplunkAsserts.splunkEventsToRecords;
+import static com.google.cloud.teleport.it.truthmatchers.PipelineAsserts.assertThatPipeline;
+import static com.google.cloud.teleport.it.truthmatchers.PipelineAsserts.assertThatResult;
 
 import com.google.cloud.teleport.it.common.PipelineLauncher;
 import com.google.cloud.teleport.it.common.PipelineOperator;
@@ -30,6 +30,7 @@ import com.google.cloud.teleport.it.gcp.pubsub.conditions.PubsubMessagesCheck;
 import com.google.cloud.teleport.it.splunk.SplunkResourceManager;
 import com.google.cloud.teleport.it.splunk.conditions.SplunkEventsCheck;
 import com.google.cloud.teleport.metadata.DirectRunnerTest;
+import com.google.cloud.teleport.metadata.SkipDirectRunnerTest;
 import com.google.cloud.teleport.metadata.TemplateIntegrationTest;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
@@ -206,6 +207,8 @@ public class PubSubToSplunkIT extends TemplateTestBase {
   }
 
   @Test
+  // TODO: Skip DirectRunner because batching/timers are not working appropriately
+  @Category({TemplateIntegrationTest.class, SkipDirectRunnerTest.class})
   public void testPubSubToSplunkWithBatchAndParallelism() throws IOException {
     PipelineLauncher.LaunchConfig.Builder parameters =
         PipelineLauncher.LaunchConfig.builder(testName, specPath)

@@ -15,10 +15,10 @@
  */
 package com.google.cloud.teleport.v2.templates;
 
-import static com.google.cloud.teleport.it.common.matchers.TemplateAsserts.assertThatPipeline;
-import static com.google.cloud.teleport.it.common.matchers.TemplateAsserts.assertThatRecords;
-import static com.google.cloud.teleport.it.common.matchers.TemplateAsserts.assertThatResult;
 import static com.google.cloud.teleport.it.gcp.artifacts.matchers.ArtifactAsserts.assertThatGenericRecords;
+import static com.google.cloud.teleport.it.truthmatchers.PipelineAsserts.assertThatPipeline;
+import static com.google.cloud.teleport.it.truthmatchers.PipelineAsserts.assertThatRecords;
+import static com.google.cloud.teleport.it.truthmatchers.PipelineAsserts.assertThatResult;
 
 import com.google.cloud.spanner.Mutation;
 import com.google.cloud.spanner.Type;
@@ -30,6 +30,7 @@ import com.google.cloud.teleport.it.gcp.artifacts.Artifact;
 import com.google.cloud.teleport.it.gcp.artifacts.utils.AvroTestUtil;
 import com.google.cloud.teleport.it.gcp.artifacts.utils.JsonTestUtil;
 import com.google.cloud.teleport.it.gcp.spanner.SpannerResourceManager;
+import com.google.cloud.teleport.metadata.SkipDirectRunnerTest;
 import com.google.cloud.teleport.metadata.TemplateIntegrationTest;
 import com.google.gson.Gson;
 import java.io.IOException;
@@ -54,7 +55,7 @@ import org.junit.runners.JUnit4;
 /**
  * Integration test for {@link SpannerChangeStreamsToGcs Spanner Change Streams to GCS} template.
  */
-@Category(TemplateIntegrationTest.class)
+@Category({TemplateIntegrationTest.class, SkipDirectRunnerTest.class})
 @TemplateIntegrationTest(SpannerChangeStreamsToGcs.class)
 @RunWith(JUnit4.class)
 public class SpannerChangeStreamsToGcsIT extends TemplateTestBase {
