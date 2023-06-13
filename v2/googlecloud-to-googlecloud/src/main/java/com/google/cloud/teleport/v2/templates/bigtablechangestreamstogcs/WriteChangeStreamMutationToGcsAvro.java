@@ -28,7 +28,7 @@ import org.apache.beam.sdk.transforms.FlatMapElements;
 import com.google.cloud.teleport.v2.io.WindowedFilenamePolicy;
 import com.google.cloud.teleport.v2.utils.WriteToGCSUtility;
 import java.util.UUID;
-import org.apache.beam.sdk.io.AvroIO;
+import org.apache.beam.sdk.extensions.avro.io.AvroIO;
 import org.apache.beam.sdk.io.FileBasedSink;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -76,7 +76,6 @@ public abstract class WriteChangeStreamMutationToGcsAvro
         .apply("ChangeStreamMutation to ChangelogEntry",
             FlatMapElements.via(
                 new BigtableChangeStreamMutationToChangelogEntryFn(bigtableUtils())));
-
     /*
      * Writing as avro file using {@link AvroIO}.
      *
@@ -97,11 +96,6 @@ public abstract class WriteChangeStreamMutationToGcsAvro
                           .withOutputDirectory(gcsOutputDirectory())
                           .withOutputFilenamePrefix(outputFilenamePrefix())
                           .withShardTemplate(WriteToGCSUtility.SHARD_TEMPLATE)
-                          .withMinutePattern("mm")
-                          .withHourPattern("HH")
-                          .withDayPattern("dd")
-                          .withMonthPattern("MM")
-                          .withYearPattern("yyyy")
                           .withSuffix(
                               WriteToGCSUtility.FILE_SUFFIX_MAP.get(
                                   WriteToGCSUtility.FileFormat.AVRO)))
@@ -120,11 +114,6 @@ public abstract class WriteChangeStreamMutationToGcsAvro
                         .withOutputDirectory(gcsOutputDirectory())
                         .withOutputFilenamePrefix(outputFilenamePrefix())
                         .withShardTemplate(WriteToGCSUtility.SHARD_TEMPLATE)
-                        .withMinutePattern("mm")
-                        .withHourPattern("HH")
-                        .withDayPattern("dd")
-                        .withMonthPattern("MM")
-                        .withYearPattern("yyyy")
                         .withSuffix(
                             WriteToGCSUtility.FILE_SUFFIX_MAP.get(
                                 WriteToGCSUtility.FileFormat.AVRO)))

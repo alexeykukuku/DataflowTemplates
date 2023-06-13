@@ -269,7 +269,7 @@ public class BigtableUtils implements Serializable {
    */
   public List<ChangelogEntry> getValidEntries(ChangeStreamMutation mutation) {
     // filter first and then format
-    List<ChangelogEntry> validEntries = new ArrayList<>();
+    List<ChangelogEntry> validEntries = new ArrayList<>(mutation.getEntries().size());
     for (Entry entry : mutation.getEntries()) {
       if (entry instanceof SetCell) {
         SetCell setCell = (SetCell) entry;
