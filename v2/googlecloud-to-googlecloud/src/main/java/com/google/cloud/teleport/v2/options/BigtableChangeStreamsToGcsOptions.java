@@ -25,6 +25,7 @@ import org.apache.beam.sdk.options.Validation;
 
 public interface BigtableChangeStreamsToGcsOptions
     extends DataflowPipelineOptions, ReadChangeStreamOptions {
+
   @TemplateParameter.Enum(
       order = 1,
       enumOptions = {"TEXT", "AVRO"},
@@ -54,19 +55,18 @@ public interface BigtableChangeStreamsToGcsOptions
       order = 3,
       optional = true,
       description = "Bigtable Metadata Table Id",
-      helpText = "Table ID used for creating the metadata table."
-  )
+      helpText = "Table ID used for creating the metadata table.")
   String getBigtableMetadataTableTableId();
 
   void setBigtableMetadataTableTableId(String bigtableMetadataTableTableId);
 
   @TemplateParameter.Enum(
       order = 4,
-      enumOptions = {"SIMPLE", "BIGTABLEROW"},
+      enumOptions = {"CHANGELOG_ENTRY", "BIGTABLEROW"},
       optional = true,
       description = "Output schema format",
       helpText = "Schema chosen for outputting data to GCS.")
-  @Default.Enum("SIMPLE")
+  @Default.Enum("CHANGELOG_ENTRY")
   BigtableSchemaFormat getSchemaOutputFormat();
 
   void setSchemaOutputFormat(BigtableSchemaFormat outputSchemaFormat);
@@ -85,6 +85,7 @@ public interface BigtableChangeStreamsToGcsOptions
 
   @TemplateParameter.Text(
       order = 6,
+      optional = true,
       description = "Output filename prefix of the files to write",
       helpText = "The prefix to place on each windowed file.",
       example = "output-")
@@ -96,14 +97,63 @@ public interface BigtableChangeStreamsToGcsOptions
   @TemplateParameter.Integer(
       order = 7,
       optional = true,
-      description = "Maximum output shards",
+      description = "Number of output file shards",
       helpText =
-          "The maximum number of output shards produced when writing. A higher number of "
-              + "shards means higher throughput for writing to Cloud Storage, but potentially higher "
-              + "data aggregation cost across shards when processing output Cloud Storage files.")
+          "The maximum number of output shards produced when writing to Cloud Storage. "
+              + "A higher number of shards means higher throughput for writing to Cloud Storage, "
+              + "but potentially higher data aggregation cost across shards when processing "
+              + "output Cloud Storage files.")
   @Default.Integer(20)
-  Integer getNumShards();
+  Integer getOutputShardsCount();
 
-  void setNumShards(Integer numShards);
+  void setOutputShardsCount(Integer numShards);
 
+  @TemplateParameter.Integer(
+      order = 7,
+      optional = true,
+      description = "Maximum number of mutations in a batch",
+      helpText =
+          "Batching mutations reduces overhead and cost. Depending on the size of values "
+              + "written to Cloud Bigtable the batch size might need to be adjusted lower to avoid "
+              + "memory pressures on the worker fleet.")
+  @Default.Integer(10000)
+  Integer getOutputBatchSize();
+
+  void setOutputBatchSize(Integer numShards);
+
+  @TemplateParameter.Boolean(
+      order = 8,
+      optional = true,
+      description = "Write Base64-encoded rowkeys",
+      helpText =
+          "Only supported for the TEXT output file format. When set to true, rowkeys will be written as Base64-encoded strings. Otherwise bigtableChangeStreamCharset charset will be used to decode binary values into String rowkeys"
+              + "Defaults to false.")
+  @Default.Boolean(false)
+  Boolean getUseBase64Rowkey();
+
+  void setUseBase64Rowkey(Boolean useBase64Rowkey);
+
+  @TemplateParameter.Boolean(
+      order = 9,
+      optional = true,
+      description = "Write Base64-encoded column qualifiers",
+      helpText =
+          "Only supported for the TEXT output file format. When set to true, column qualifiers will be written as Base64-encoded strings. Otherwise bigtableChangeStreamCharset charset will be used to decode binary values into String column qualifiers"
+              + "Defaults to false.")
+  @Default.Boolean(false)
+  Boolean getUseBase64ColumnQualifier();
+
+  void setUseBase64ColumnQualifier(Boolean useBase64ColumnQualifier);
+
+  @TemplateParameter.Boolean(
+      order = 10,
+      optional = true,
+      description = "Write Base64-encoded value",
+      helpText =
+          "Only supported for the TEXT output file format. When set to true, values will be written as Base64-encoded strings. Otherwise bigtableChangeStreamCharset charset will be used to decode binary values into String values"
+              + "Defaults to false.")
+  @Default.Boolean(false)
+  Boolean getUseBase64Value();
+
+  void setUseBase64Value(Boolean useBase64Value);
 }

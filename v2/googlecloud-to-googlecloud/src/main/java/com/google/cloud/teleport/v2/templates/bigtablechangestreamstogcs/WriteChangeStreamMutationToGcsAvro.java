@@ -15,39 +15,39 @@
  */
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 
-import com.google.auto.value.AutoValue;
-import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.annotations.VisibleForTesting;
-import com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.model.BigtableSchemaFormat;
-import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
-
 import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkNotNull;
 
-import java.util.concurrent.atomic.AtomicLong;
-import org.apache.beam.sdk.transforms.FlatMapElements;
+import com.google.auto.value.AutoValue;
+import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.teleport.v2.io.WindowedFilenamePolicy;
+import com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.model.BigtableSchemaFormat;
 import com.google.cloud.teleport.v2.utils.WriteToGCSUtility;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.beam.sdk.extensions.avro.io.AvroIO;
 import org.apache.beam.sdk.io.FileBasedSink;
+import org.apache.beam.sdk.transforms.FlatMapElements;
 import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PDone;
+import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * The {@link WriteChangeStreamMutationToGcsAvro} class is a {@link PTransform} that takes in {@link
- * PCollection} of Bigtable Change Stream Mutations. The transform converts and writes these records to
- * GCS in avro file format.
+ * PCollection} of Bigtable Change Stream Mutations. The transform converts and writes these records
+ * to GCS in avro file format.
  */
 @AutoValue
 public abstract class WriteChangeStreamMutationToGcsAvro
     extends PTransform<PCollection<ChangeStreamMutation>, PDone> {
   @VisibleForTesting protected static final String DEFAULT_OUTPUT_FILE_PREFIX = "output";
   /* Logger for class. */
-  private static final Logger LOG = LoggerFactory.getLogger(WriteChangeStreamMutationToGcsAvro.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(WriteChangeStreamMutationToGcsAvro.class);
   private static final long serialVersionUID = 825905520835363852L;
 
   private static final AtomicLong counter = new AtomicLong(0);
@@ -55,7 +55,8 @@ public abstract class WriteChangeStreamMutationToGcsAvro
   private static final String workerId = UUID.randomUUID().toString();
 
   public static WriteToGcsBuilder newBuilder() {
-    return new com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.AutoValue_WriteChangeStreamMutationToGcsAvro.Builder();
+    return new com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs
+        .AutoValue_WriteChangeStreamMutationToGcsAvro.Builder();
   }
 
   public abstract String gcsOutputDirectory();
@@ -72,8 +73,9 @@ public abstract class WriteChangeStreamMutationToGcsAvro
 
   @Override
   public PDone expand(PCollection<ChangeStreamMutation> mutations) {
-    PCollection<com.google.cloud.teleport.bigtable.ChangelogEntry> changelogEntry = mutations
-        .apply("ChangeStreamMutation to ChangelogEntry",
+    PCollection<com.google.cloud.teleport.bigtable.ChangelogEntry> changelogEntry =
+        mutations.apply(
+            "ChangeStreamMutation to ChangelogEntry",
             FlatMapElements.via(
                 new BigtableChangeStreamMutationToChangelogEntryFn(bigtableUtils())));
     /*
@@ -87,7 +89,8 @@ public abstract class WriteChangeStreamMutationToGcsAvro
       return changelogEntry
           .apply(
               "ChangelogEntry To BigtableRow",
-              MapElements.via(new BigtableChangelogEntryToBigtableRowFn(workerId, counter, bigtableUtils())))
+              MapElements.via(
+                  new BigtableChangelogEntryToBigtableRowFn(workerId, counter, bigtableUtils())))
           .apply(
               "Writing as Avro",
               AvroIO.write(com.google.cloud.teleport.bigtable.BigtableRow.class)
@@ -106,22 +109,19 @@ public abstract class WriteChangeStreamMutationToGcsAvro
                   .withNumShards(numShards()));
     }
 
-    return changelogEntry
-        .apply(
-            AvroIO.write(com.google.cloud.teleport.bigtable.ChangelogEntry.class)
-                .to(
-                    WindowedFilenamePolicy.writeWindowedFiles()
-                        .withOutputDirectory(gcsOutputDirectory())
-                        .withOutputFilenamePrefix(outputFilenamePrefix())
-                        .withShardTemplate(WriteToGCSUtility.SHARD_TEMPLATE)
-                        .withSuffix(
-                            WriteToGCSUtility.FILE_SUFFIX_MAP.get(
-                                WriteToGCSUtility.FileFormat.AVRO)))
-                .withTempDirectory(
-                    FileBasedSink.convertToFileResourceIfPossible(tempLocation())
-                        .getCurrentDirectory())
-                .withWindowedWrites()
-                .withNumShards(numShards()));
+    return changelogEntry.apply(
+        AvroIO.write(com.google.cloud.teleport.bigtable.ChangelogEntry.class)
+            .to(
+                WindowedFilenamePolicy.writeWindowedFiles()
+                    .withOutputDirectory(gcsOutputDirectory())
+                    .withOutputFilenamePrefix(outputFilenamePrefix())
+                    .withShardTemplate(WriteToGCSUtility.SHARD_TEMPLATE)
+                    .withSuffix(
+                        WriteToGCSUtility.FILE_SUFFIX_MAP.get(WriteToGCSUtility.FileFormat.AVRO)))
+            .withTempDirectory(
+                FileBasedSink.convertToFileResourceIfPossible(tempLocation()).getCurrentDirectory())
+            .withWindowedWrites()
+            .withNumShards(numShards()));
   }
 
   /** Builder for {@link WriteChangeStreamMutationToGcsAvro}. */

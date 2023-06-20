@@ -15,14 +15,14 @@
  */
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.model;
 
+import com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.BigtableUtils;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.BigtableUtils;
 
 /**
- * The {@link ChangelogColumns} contains all the available properties that are present in a
- * a row which will be written into GCS. Note that these properties are present in
- * {@link com.google.cloud.teleport.bigtable.ChangelogEntry} and may or may not be required.
+ * The {@link ChangelogColumns} contains all the available properties that are present in a a row
+ * which will be written into GCS. Note that these properties are present in {@link
+ * com.google.cloud.teleport.bigtable.ChangelogEntry} and may or may not be required.
  */
 public enum ChangelogColumns {
   ROW_KEY("row_key"),

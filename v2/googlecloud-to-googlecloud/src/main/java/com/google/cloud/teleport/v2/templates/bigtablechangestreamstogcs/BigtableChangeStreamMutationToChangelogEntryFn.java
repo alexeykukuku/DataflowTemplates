@@ -20,12 +20,13 @@ import java.util.List;
 import org.apache.beam.sdk.transforms.SimpleFunction;
 
 /**
- * Class used as a {@link org.apache.beam.sdk.transforms.PTransform} to get
- * valid {@link com.google.cloud.teleport.bigtable.ChangelogEntry} objects based on the parameters
- * provided by the pipeline.
+ * Class used as a {@link org.apache.beam.sdk.transforms.PTransform} to get valid {@link
+ * com.google.cloud.teleport.bigtable.ChangelogEntry} objects based on the parameters provided by
+ * the pipeline.
  */
-public class BigtableChangeStreamMutationToChangelogEntryFn extends
-    SimpleFunction<ChangeStreamMutation, List<com.google.cloud.teleport.bigtable.ChangelogEntry>> {
+public class BigtableChangeStreamMutationToChangelogEntryFn
+    extends SimpleFunction<
+        ChangeStreamMutation, List<com.google.cloud.teleport.bigtable.ChangelogEntry>> {
 
   private final BigtableUtils bigtableUtils;
 

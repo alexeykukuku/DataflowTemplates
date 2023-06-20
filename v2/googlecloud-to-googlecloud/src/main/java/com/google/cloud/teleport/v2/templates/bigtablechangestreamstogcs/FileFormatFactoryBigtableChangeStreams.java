@@ -18,8 +18,8 @@ package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.teleport.v2.options.BigtableChangeStreamsToGcsOptions;
+import com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.model.DestinationInfo;
 import com.google.cloud.teleport.v2.utils.WriteToGCSUtility.FileFormat;
-import java.nio.charset.Charset;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.POutput;
@@ -28,8 +28,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * The {@link FileFormatFactoryBigtableChangeStreams} class is a {@link PTransform} that takes in
- * {@link PCollection} of ChangeStreamMutations. The transform writes these records to GCS file(s) in
- * user specified format.
+ * {@link PCollection} of ChangeStreamMutations. The transform writes these records to GCS file(s)
+ * in user specified format.
  */
 @AutoValue
 public abstract class FileFormatFactoryBigtableChangeStreams
@@ -40,7 +40,8 @@ public abstract class FileFormatFactoryBigtableChangeStreams
       LoggerFactory.getLogger(FileFormatFactoryBigtableChangeStreams.class);
 
   public static WriteToGcsBuilder newBuilder() {
-    return new com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.AutoValue_FileFormatFactoryBigtableChangeStreams.Builder();
+    return new com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs
+        .AutoValue_FileFormatFactoryBigtableChangeStreams.Builder();
   }
 
   public abstract BigtableChangeStreamsToGcsOptions options();
@@ -53,9 +54,6 @@ public abstract class FileFormatFactoryBigtableChangeStreams
   public POutput expand(PCollection<ChangeStreamMutation> mutations) {
     POutput output;
 
-    final String errorMessage =
-        "Invalid output format:" + outputFileFormat() + ". Supported output formats: TEXT, AVRO";
-
     /*
      * Calls appropriate class Builder to performs PTransform based on user provided File Format.
      */
@@ -67,7 +65,7 @@ public abstract class FileFormatFactoryBigtableChangeStreams
                 WriteChangeStreamMutationToGcsAvro.newBuilder()
                     .withGcsOutputDirectory(options().getGcsOutputDirectory())
                     .withOutputFilenamePrefix(options().getOutputFilenamePrefix())
-                    .setNumShards(options().getNumShards())
+                    .setNumShards(options().getOutputShardsCount())
                     .withTempLocation(options().getTempLocation())
                     .withSchemaOutputFormat(options().getSchemaOutputFormat())
                     .withBigtableUtils(bigtableUtils())
@@ -80,18 +78,29 @@ public abstract class FileFormatFactoryBigtableChangeStreams
                 WriteChangeStreamMutationsToGcsText.newBuilder()
                     .withGcsOutputDirectory(options().getGcsOutputDirectory())
                     .withOutputFilenamePrefix(options().getOutputFilenamePrefix())
-                    .setNumShards(options().getNumShards())
+                    .setNumShards(options().getOutputShardsCount())
                     .withTempLocation(options().getTempLocation())
                     .withSchemaOutputFormat(options().getSchemaOutputFormat())
+                    .withDestinationInfo(newDestinationInfo(options()))
                     .withBigtableUtils(bigtableUtils())
                     .build());
         break;
 
       default:
-        LOG.info(errorMessage);
-        throw new IllegalArgumentException(errorMessage);
+        throw new IllegalArgumentException(
+            "Invalid output format:"
+                + outputFileFormat()
+                + ". Supported output formats: TEXT, AVRO");
     }
     return output;
+  }
+
+  private DestinationInfo newDestinationInfo(BigtableChangeStreamsToGcsOptions options) {
+    return new DestinationInfo(
+        options.getBigtableChangeStreamCharset(),
+        options.getUseBase64Rowkey(),
+        options.getUseBase64ColumnQualifier(),
+        options.getUseBase64Value());
   }
 
   /** Builder for {@link FileFormatFactoryBigtableChangeStreams}. */

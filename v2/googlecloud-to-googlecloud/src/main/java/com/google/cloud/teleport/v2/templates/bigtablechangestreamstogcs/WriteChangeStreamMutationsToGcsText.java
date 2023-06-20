@@ -19,11 +19,10 @@ import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Prec
 import static org.apache.beam.vendor.guava.v26_0_jre.com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.auto.value.AutoValue;
-import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.annotations.VisibleForTesting;
-
-import com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.model.BigtableSchemaFormat;
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.teleport.v2.io.WindowedFilenamePolicy;
+import com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.model.BigtableSchemaFormat;
+import com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.model.DestinationInfo;
 import com.google.cloud.teleport.v2.utils.WriteToGCSUtility;
 import com.google.gson.Gson;
 import java.util.UUID;
@@ -35,14 +34,14 @@ import org.apache.beam.sdk.transforms.MapElements;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PDone;
-import org.apache.beam.sdk.values.TypeDescriptors;
+import org.apache.beam.vendor.guava.v26_0_jre.com.google.common.annotations.VisibleForTesting;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * The {@link WriteChangeStreamMutationsToGcsText} class is a {@link PTransform} that takes in {@link
- * PCollection} of Bigtable change stream mutations. The transform converts and writes these records to
- * GCS in JSON text file format.
+ * The {@link WriteChangeStreamMutationsToGcsText} class is a {@link PTransform} that takes in
+ * {@link PCollection} of Bigtable change stream mutations. The transform converts and writes these
+ * records to GCS in JSON text file format.
  */
 @AutoValue
 public abstract class WriteChangeStreamMutationsToGcsText
@@ -53,14 +52,15 @@ public abstract class WriteChangeStreamMutationsToGcsText
 
   private static final String workerId = UUID.randomUUID().toString();
 
-  @VisibleForTesting
-  protected static final String DEFAULT_OUTPUT_FILE_PREFIX = "output";
+  @VisibleForTesting protected static final String DEFAULT_OUTPUT_FILE_PREFIX = "output";
 
   /* Logger for class. */
-  private static final Logger LOG = LoggerFactory.getLogger(WriteChangeStreamMutationsToGcsText.class);
+  private static final Logger LOG =
+      LoggerFactory.getLogger(WriteChangeStreamMutationsToGcsText.class);
 
   public static WriteToGcsBuilder newBuilder() {
-    return new com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.AutoValue_WriteChangeStreamMutationsToGcsText.Builder();
+    return new com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs
+        .AutoValue_WriteChangeStreamMutationsToGcsText.Builder();
   }
 
   public abstract String gcsOutputDirectory();
@@ -75,47 +75,18 @@ public abstract class WriteChangeStreamMutationsToGcsText
 
   public abstract BigtableSchemaFormat schemaOutputFormat();
 
+  public abstract DestinationInfo destinationInfo();
+
   @Override
   public PDone expand(PCollection<ChangeStreamMutation> mutations) {
-    PCollection<com.google.cloud.teleport.bigtable.ChangelogEntry> changelogEntry = mutations
-        .apply("ChangeStreamMutation to ChangelogEntry",
-            FlatMapElements.via(new BigtableChangeStreamMutationToChangelogEntryFn(bigtableUtils())));
-    /*
-     * Writing as text file using {@link TextIO}.
-     *
-     * The {@link WindowedFilenamePolicy} class specifies the file path for writing the file.
-     * The {@link withNumShards} option specifies the number of shards passed by the user.
-     * The {@link withTempDirectory} option sets the base directory used to generate temporary files.
-     */
-    if (schemaOutputFormat() == BigtableSchemaFormat.BIGTABLEROW) {
-      return changelogEntry
-          .apply("ChangelogEntry to BigtableRow",
-              MapElements.via(new BigtableChangelogEntryToBigtableRowFn(workerId, counter, bigtableUtils())))
-          .apply(MapElements.into(TypeDescriptors.strings())
-              .via((com.google.cloud.teleport.bigtable.BigtableRow row) -> gson.toJson(row,
-                  com.google.cloud.teleport.bigtable.BigtableRow.class)))
-          .apply(
-              "Writing as Text",
-              TextIO.write()
-                  .to(
-                      WindowedFilenamePolicy.writeWindowedFiles()
-                          .withOutputDirectory(gcsOutputDirectory())
-                          .withOutputFilenamePrefix(outputFilenamePrefix())
-                          .withShardTemplate(WriteToGCSUtility.SHARD_TEMPLATE)
-                          .withSuffix(
-                              WriteToGCSUtility.FILE_SUFFIX_MAP.get(
-                                  WriteToGCSUtility.FileFormat.TEXT)))
-                  .withTempDirectory(
-                      FileBasedSink.convertToFileResourceIfPossible(tempLocation())
-                          .getCurrentDirectory())
-                  .withWindowedWrites()
-                  .withNumShards(numShards()));
-    }
+    PCollection<com.google.cloud.teleport.bigtable.ChangelogEntry> changelogEntry =
+        mutations.apply(
+            "ChangeStreamMutation to ChangelogEntry",
+            FlatMapElements.via(
+                new BigtableChangeStreamMutationToChangelogEntryFn(bigtableUtils())));
 
     return changelogEntry
-        .apply(MapElements.into(TypeDescriptors.strings())
-            .via((com.google.cloud.teleport.bigtable.ChangelogEntry row) -> gson.toJson(row,
-                com.google.cloud.teleport.bigtable.ChangelogEntry.class)))
+        .apply(MapElements.via(new WriteChangelogEntryAsJson(destinationInfo())))
         .apply(
             "Writing as Text",
             TextIO.write()
@@ -152,6 +123,8 @@ public abstract class WriteChangeStreamMutationsToGcsText
 
     abstract WriteToGcsBuilder setSchemaOutputFormat(BigtableSchemaFormat schema);
 
+    abstract WriteToGcsBuilder setDestinationInfo(DestinationInfo destinationInfo);
+
     abstract WriteChangeStreamMutationsToGcsText autoBuild();
 
     abstract WriteToGcsBuilder setBigtableUtils(BigtableUtils bigtableUtils);
@@ -182,6 +155,10 @@ public abstract class WriteChangeStreamMutationsToGcsText
 
     public WriteToGcsBuilder withSchemaOutputFormat(BigtableSchemaFormat schema) {
       return setSchemaOutputFormat(schema);
+    }
+
+    public WriteToGcsBuilder withDestinationInfo(DestinationInfo destinationInfo) {
+      return setDestinationInfo(destinationInfo);
     }
 
     public WriteChangeStreamMutationsToGcsText build() {

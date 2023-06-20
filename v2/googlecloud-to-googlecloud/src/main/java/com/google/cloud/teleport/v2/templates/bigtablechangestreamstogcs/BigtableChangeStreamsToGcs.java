@@ -13,7 +13,6 @@
  * License for the specific language governing permissions and limitations under
  * the License.
  */
-
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 
 import com.google.cloud.Timestamp;
@@ -27,8 +26,10 @@ import com.google.cloud.storage.StorageOptions;
 import com.google.cloud.teleport.metadata.Template;
 import com.google.cloud.teleport.metadata.TemplateCategory;
 import com.google.cloud.teleport.v2.options.BigtableChangeStreamsToGcsOptions;
+import com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.model.BigtableSchemaFormat;
 import com.google.cloud.teleport.v2.utils.BigtableSource;
 import com.google.cloud.teleport.v2.utils.DurationUtils;
+import com.google.cloud.teleport.v2.utils.WriteToGCSUtility.FileFormat;
 import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,9 +44,13 @@ import org.apache.beam.sdk.io.gcp.bigtable.BigtableIO;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
+import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.transforms.Values;
+import org.apache.beam.sdk.transforms.WithTimestamps;
+import org.apache.beam.sdk.transforms.windowing.AfterFirst;
+import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
-import org.apache.beam.sdk.transforms.windowing.GlobalWindows;
+import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
@@ -91,30 +96,31 @@ public class BigtableChangeStreamsToGcs {
     run(options);
   }
 
-  private static void addCbtChangeProducer(Pipeline pipeline, BigtableChangeStreamsToGcsOptions options) {
+  private static void addCbtChangeProducer(
+      Pipeline pipeline, BigtableChangeStreamsToGcsOptions options) {
     int kbPerRow = 10;
-    int rate     = 20000;
-    int numRows  = 50000000;
+    int rate = 20000;
+    int numRows = 50000000;
     String columnFamily = "cf";
 
     String generateLabel = String.format("Generate some data: %d rows", numRows);
-    String mutationLabel = String
-        .format("Create mutations that write %dKB to each row", kbPerRow);
+    String mutationLabel = String.format("Create mutations that write %dKB to each row", kbPerRow);
 
-    PCollection<Mutation> mutations = pipeline
-        .apply(generateLabel, GenerateSequence.from(0).to(numRows)
-            .withRate(rate, Duration.standardSeconds(1)))
-        .apply(mutationLabel,
-            ParDo.of(new CreateMutationFn(kbPerRow * 1024L, columnFamily)));
+    PCollection<Mutation> mutations =
+        pipeline
+            .apply(
+                generateLabel,
+                GenerateSequence.from(0).to(numRows).withRate(rate, Duration.standardSeconds(1)))
+            .apply(mutationLabel, ParDo.of(new CreateMutationFn(kbPerRow * 1024L, columnFamily)));
 
     mutations.apply(
         String.format("Write data to table %s", options.getBigtableReadTableId()),
-        CloudBigtableIO.writeToTable(new CloudBigtableTableConfiguration.Builder()
-            .withProjectId(options.getProject())
-            .withInstanceId(options.getBigtableReadInstanceId())
-            .withTableId(options.getBigtableReadTableId())
-            .build())
-    );
+        CloudBigtableIO.writeToTable(
+            new CloudBigtableTableConfiguration.Builder()
+                .withProjectId(options.getProject())
+                .withInstanceId(options.getBigtableReadInstanceId())
+                .withTableId(options.getBigtableReadTableId())
+                .build()));
   }
 
   private static String getProjectId(BigtableChangeStreamsToGcsOptions options) {
@@ -131,9 +137,13 @@ public class BigtableChangeStreamsToGcs {
 
   public static PipelineResult run(BigtableChangeStreamsToGcsOptions options) {
     LOG.info("Requested File Format is " + options.getOutputFileFormat());
+    LOG.info("Batch size is " + options.getOutputBatchSize());
+    LOG.info("Maximum shards count is " + options.getOutputShardsCount());
+
     options.setStreaming(true);
     options.setEnableStreamingEngine(true);
 
+    validateOutputFormat(options);
     validateOutputDirectoryAccess(options);
 
     final Pipeline pipeline = Pipeline.create(options);
@@ -147,14 +157,14 @@ public class BigtableChangeStreamsToGcs {
             ? Instant.now()
             : toInstant(Timestamp.parseTimestamp(options.getBigtableChangeStreamStartTimestamp()));
 
-    BigtableSource sourceInfo = new BigtableSource(
-        options.getBigtableReadInstanceId(),
-        options.getBigtableReadTableId(),
-        getBigtableCharset(options),
-        options.getBigtableChangeStreamIgnoreColumnFamilies(),
-        options.getBigtableChangeStreamIgnoreColumns(),
-        startTimestamp
-    );
+    BigtableSource sourceInfo =
+        new BigtableSource(
+            options.getBigtableReadInstanceId(),
+            options.getBigtableReadTableId(),
+            getBigtableCharset(options),
+            options.getBigtableChangeStreamIgnoreColumnFamilies(),
+            options.getBigtableChangeStreamIgnoreColumns(),
+            startTimestamp);
 
     BigtableUtils bigtableUtils = new BigtableUtils(sourceInfo);
 
@@ -176,6 +186,8 @@ public class BigtableChangeStreamsToGcs {
     }
     options.setExperiments(experiments);
 
+    Duration windowingDuration = DurationUtils.parseDuration(options.getWindowDuration());
+
     pipeline
         .apply(
             BigtableIO.readChangeStream()
@@ -187,33 +199,75 @@ public class BigtableChangeStreamsToGcs {
                 .withMetadataTableInstanceId(options.getBigtableChangeStreamMetadataInstanceId())
                 .withMetadataTableTableId(options.getBigtableMetadataTableTableId())
                 .withStartTime(startTimestamp))
+        .apply(introduceTimestamps())
         .apply(
-            Window.<KV<ByteString, ChangeStreamMutation>>into(new GlobalWindows())
+            "Creating " + options.getWindowDuration() + " Window",
+            Window.<KV<ByteString, ChangeStreamMutation>>into(FixedWindows.of(windowingDuration))
                 .triggering(
                     Repeatedly.forever(
-                        AfterProcessingTime.pastFirstElementInPane()
-                            .plusDelayOf(DurationUtils.parseDuration(options.getWindowDuration()))))
+                        AfterFirst.of(
+                            AfterProcessingTime.pastFirstElementInPane()
+                                .plusDelayOf(windowingDuration),
+                            AfterPane.elementCountAtLeast(options.getOutputBatchSize()))))
+                .withAllowedLateness(Duration.standardMinutes(10))
                 .discardingFiredPanes())
         .apply(Values.create())
         .apply(
             "Write To GCS",
-            FileFormatFactoryBigtableChangeStreams.newBuilder().setOptions(options)
-                .setBigtableUtils(bigtableUtils).build()
-        );
+            FileFormatFactoryBigtableChangeStreams.newBuilder()
+                .setOptions(options)
+                .setBigtableUtils(bigtableUtils)
+                .build());
 
-    addCbtChangeProducer(pipeline, options);
+    // addCbtChangeProducer(pipeline, options);
 
     return pipeline.run();
   }
 
+  private static void validateOutputFormat(BigtableChangeStreamsToGcsOptions options) {
+    switch (options.getSchemaOutputFormat()) {
+      case CHANGELOG_ENTRY:
+        if (options.getOutputFileFormat() != FileFormat.TEXT
+            && options.getOutputFileFormat() != FileFormat.AVRO) {
+          throw new IllegalArgumentException(
+              BigtableSchemaFormat.CHANGELOG_ENTRY
+                  + " schema output format can be used with AVRO and TEXT output file formats");
+        }
+        break;
+      case BIGTABLEROW:
+        if (options.getOutputFileFormat() != FileFormat.AVRO) {
+          throw new IllegalArgumentException(
+              BigtableSchemaFormat.BIGTABLEROW
+                  + " schema output format can be used with AVRO output file format");
+        }
+      default:
+        throw new IllegalArgumentException(
+            "Unsupported schema output format: " + options.getSchemaOutputFormat());
+    }
+  }
+
+  private static WithTimestamps<KV<ByteString, ChangeStreamMutation>> introduceTimestamps() {
+    return WithTimestamps.of(
+        (SerializableFunction<KV<ByteString, ChangeStreamMutation>, Instant>)
+            input -> {
+              if (input == null || input.getValue() == null) {
+                return null;
+              } else {
+                return Instant.ofEpochMilli(input.getValue().getCommitTimestamp().toEpochMilli());
+              }
+            });
+  }
+
   private static void validateOutputDirectoryAccess(BigtableChangeStreamsToGcsOptions options)
       throws IllegalArgumentException {
-    Matcher matcher = Pattern.compile(GCS_OUTPUT_DIRECTORY_REGEX)
-        .matcher(options.getGcsOutputDirectory());
+    Matcher matcher =
+        Pattern.compile(GCS_OUTPUT_DIRECTORY_REGEX).matcher(options.getGcsOutputDirectory());
 
     if (!matcher.matches()) {
-      throw new IllegalArgumentException("--gcsOutputDirectory is expected in a format matching "
-          + "the following regular expression: " + GCS_OUTPUT_DIRECTORY_REGEX);
+      throw new IllegalArgumentException(
+          "--gcsOutputDirectory is expected in a format matching "
+              + "the following regular expression: "
+              + GCS_OUTPUT_DIRECTORY_REGEX);
     }
     String bucket = matcher.group(1);
     String path = matcher.group(2);
@@ -222,10 +276,8 @@ public class BigtableChangeStreamsToGcs {
       path += "/";
     }
 
-    Storage storage = StorageOptions.newBuilder()
-        .setProjectId(options.getProject())
-        .build()
-        .getService();
+    Storage storage =
+        StorageOptions.newBuilder().setProjectId(options.getProject()).build().getService();
 
     String testFile = path + UUID.randomUUID();
 
@@ -235,8 +287,9 @@ public class BigtableChangeStreamsToGcs {
       storage.create(blobInfo, new byte[0]);
       fileCreated = true;
     } catch (Exception e) {
-      throw new IllegalArgumentException("Unable to ensure write access for the output directory: "
-          + options.getGcsOutputDirectory());
+      throw new IllegalArgumentException(
+          "Unable to ensure write access for the output directory: "
+              + options.getGcsOutputDirectory());
     } finally {
       if (fileCreated) {
         try {
@@ -248,7 +301,7 @@ public class BigtableChangeStreamsToGcs {
     }
   }
 
-  //TODO: copied from CBT to BQ
+  // TODO: copied from CBT to BQ
   private static Instant toInstant(Timestamp timestamp) {
     if (timestamp == null) {
       return null;
@@ -262,7 +315,6 @@ public class BigtableChangeStreamsToGcs {
     private final long rowSize;
     private final Random random = new Random();
     private final String columnFamily;
-
 
     public CreateMutationFn(long rowSize, String columnFamily) {
       this.rowSize = rowSize;
@@ -283,11 +335,7 @@ public class BigtableChangeStreamsToGcs {
       byte[] randomData = new byte[(int) rowSize];
 
       random.nextBytes(randomData);
-      row.addColumn(
-          Bytes.toBytes(columnFamily),
-          Bytes.toBytes("C"),
-          timestamp,
-          randomData);
+      row.addColumn(Bytes.toBytes(columnFamily), Bytes.toBytes("C"), timestamp, randomData);
       out.output(row);
     }
   }
