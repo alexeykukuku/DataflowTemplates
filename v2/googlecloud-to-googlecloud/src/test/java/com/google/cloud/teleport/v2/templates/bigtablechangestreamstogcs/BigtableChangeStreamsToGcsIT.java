@@ -125,7 +125,7 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     bigtableResourceManager.write(rowMutation);
 
-    if (!waitForFilesToShowUp(Duration.ofMinutes(10), new LookForSimpleRecord(rowMutation))) {
+    if (!waitForFilesToShowUp(Duration.ofMinutes(10), new LookForChangelogEntryJsonRecord(rowMutation))) {
       Assert.fail("Unable to find output file containing row mutation: " + rowMutation);
     }
 
