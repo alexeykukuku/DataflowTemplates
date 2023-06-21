@@ -16,31 +16,57 @@
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
+import com.google.cloud.bigtable.data.v2.models.SetCell;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.teleport.bigtable.ChangelogEntry;
 import com.google.cloud.teleport.bigtable.ChangelogEntryJson;
+import com.google.cloud.teleport.bigtable.ModType;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.util.function.Predicate;
 import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.DecoderFactory;
 import org.apache.avro.specific.SpecificDatumReader;
+import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class LookForChangelogEntryJsonRecord implements Predicate<Blob> {
-  private final RowMutation recordToLookFor;
+  private final static Logger LOG = LoggerFactory.getLogger(LookForChangelogEntryJsonRecord.class);
+  private final ChangelogEntryJson expected;
 
-  public LookForChangelogEntryJsonRecord(RowMutation rowMutation) {
-    this.recordToLookFor = rowMutation;
+  public LookForChangelogEntryJsonRecord(ChangelogEntryJson expected) {
+    this.expected = expected;
   }
 
   @Override
   public boolean test(Blob o) {
     byte[] content = o.getContent();
-    ChangelogEntryJson changelogEntry = (new Gson()).fromJson(new String(content), ChangelogEntryJson.class);
+    LOG.info("Read from GCS file ({}): {}", o.asBlobInfo(), new String(content,
+        Charset.defaultCharset()));
 
+    Gson gson = new GsonBuilder()
+        .registerTypeAdapter(CharSequence.class, new CharSequenceTypeAdapter())
+        .create();
 
-    return false;
+    ChangelogEntryJson changelogEntry = gson.fromJson(new String(content), ChangelogEntryJson.class);
+
+    Assert.assertEquals(expected.getTimestamp(), changelogEntry.getTimestamp());
+    Assert.assertEquals(expected.getIsGc(), changelogEntry.getIsGc());
+    Assert.assertEquals(expected.getModType(), changelogEntry.getModType());
+    Assert.assertEquals(expected.getRowKey().toString(), changelogEntry.getRowKey().toString());
+    Assert.assertEquals(expected.getColumnFamily().toString(), changelogEntry.getColumnFamily().toString());
+    Assert.assertEquals(expected.getLowWatermark(), changelogEntry.getLowWatermark()); // Low watermark is not working yet
+    Assert.assertEquals(expected.getColumn().toString(), changelogEntry.getColumn().toString());
+    Assert.assertTrue(expected.getCommitTimestamp() <= changelogEntry.getCommitTimestamp());
+    Assert.assertTrue(changelogEntry.getTieBreaker() >= 0);
+    Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampFrom());
+    Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampTo());
+    Assert.assertEquals(expected.getValue(), changelogEntry.getValue());
+
+    return true;
   }
 }

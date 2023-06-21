@@ -20,10 +20,13 @@ import static com.google.cloud.teleport.it.truthmatchers.PipelineAsserts.assertT
 import com.google.api.gax.paging.Page;
 import com.google.cloud.bigtable.admin.v2.models.StorageType;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
+import com.google.cloud.bigtable.data.v2.models.SetCell;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageOptions;
+import com.google.cloud.teleport.bigtable.ChangelogEntryJson;
+import com.google.cloud.teleport.bigtable.ModType;
 import com.google.cloud.teleport.it.common.PipelineLauncher.LaunchConfig;
 import com.google.cloud.teleport.it.common.PipelineLauncher.LaunchInfo;
 import com.google.cloud.teleport.it.common.PipelineOperator;
@@ -37,7 +40,9 @@ import com.google.cloud.teleport.it.gcp.bigtable.BigtableTableSpec;
 import com.google.cloud.teleport.it.gcp.storage.GcsResourceManager;
 import com.google.cloud.teleport.metadata.TemplateIntegrationTest;
 import com.google.common.collect.Lists;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,7 +61,9 @@ import org.junit.runners.JUnit4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Integration test for {@link BigtableChangeStreamsToGcs}. */
+/**
+ * Integration test for {@link BigtableChangeStreamsToGcs}.
+ */
 @Category(TemplateIntegrationTest.class)
 @TemplateIntegrationTest(BigtableChangeStreamsToGcs.class)
 @RunWith(JUnit4.class)
@@ -84,7 +91,7 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
   //         + "relies on pre-existing static resources until a new admin API client is available
   // for "
   //         + "us to set up CDC-enabled resources")
-  public void testBigtableChangeStreamsToGcsSingleMutationE2E() throws Exception {
+  public void testSingleMutationChangelogEntryJsonE2E() throws Exception {
     String appProfileId = generateAppProfileId();
 
     List<BigtableResourceManagerCluster> clusters = new ArrayList<>();
@@ -95,11 +102,11 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     BigtableTableSpec cdcTableSpec = new BigtableTableSpec();
     cdcTableSpec.setCdcEnabled(true);
-    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[] {}));
+    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[]{}));
     /// bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
 
     bigtableResourceManager.createAppProfile(
-        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[] {}));
+        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[]{}));
 
     Function<LaunchConfig.Builder, LaunchConfig.Builder> paramsAdder = Function.identity();
     launchInfo =
@@ -120,40 +127,30 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
     String column = UUID.randomUUID().toString();
     String value = UUID.randomUUID().toString();
 
+    long nowMillis = System.currentTimeMillis();
+    long timestampMicros = nowMillis * 1000;
+
     RowMutation rowMutation =
-        RowMutation.create(SOURCE_CDC_TABLE, rowkey).setCell(SOURCE_COLUMN_FAMILY, column, value);
+        RowMutation.create(SOURCE_CDC_TABLE, rowkey)
+            .setCell(SOURCE_COLUMN_FAMILY, column, timestampMicros, value);
+
+    ChangelogEntryJson expected = new ChangelogEntryJson();
+    expected.setRowKey(rowkey);
+    expected.setTimestamp(timestampMicros);
+    expected.setCommitTimestamp(nowMillis - 10000); // clock skew tolerance
+    expected.setLowWatermark(0);
+    expected.setColumn(column);
+    expected.setValue(value);
+    expected.setColumnFamily(SOURCE_COLUMN_FAMILY);
+    expected.setModType(ModType.SET_CELL);
+    expected.setIsGc(false);
 
     bigtableResourceManager.write(rowMutation);
 
-    if (!waitForFilesToShowUp(Duration.ofMinutes(10), new LookForChangelogEntryJsonRecord(rowMutation))) {
-      Assert.fail("Unable to find output file containing row mutation: " + rowMutation);
+    if (!waitForFilesToShowUp(Duration.ofMinutes(10),
+        new LookForChangelogEntryJsonRecord(expected))) {
+      Assert.fail("Unable to find output file containing row mutation: " + expected);
     }
-
-    // TableResult tableResult = bigQueryResourceManager.runQuery(query);
-    // tableResult
-    //     .iterateAll()
-    //     .forEach(
-    //         fvl -> {
-    //           Assert.assertTrue(
-    //               fvl.get(ChangelogColumn.TIMESTAMP.getBqColumnName()).getTimestampValue()
-    //                   >= timeNowMicros);
-    //           Assert.assertFalse(
-    //               fvl.get(ChangelogColumn.BQ_COMMIT_TIMESTAMP.getBqColumnName()).isNull());
-    //           Assert.assertFalse(
-    //               fvl.get(ChangelogColumn.IS_GC.getBqColumnName()).getBooleanValue());
-    //
-    // Assert.assertTrue(fvl.get(ChangelogColumn.TIMESTAMP_FROM.getBqColumnName()).isNull());
-    //
-    // Assert.assertTrue(fvl.get(ChangelogColumn.TIMESTAMP_TO.getBqColumnName()).isNull());
-    //           Assert.assertEquals(
-    //               SOURCE_CDC_TABLE,
-    //               fvl.get(ChangelogColumn.SOURCE_TABLE.getBqColumnName()).getStringValue());
-    //           Assert.assertEquals(
-    //               bigtableResourceManager.getInstanceId(),
-    //               fvl.get(ChangelogColumn.SOURCE_INSTANCE.getBqColumnName()).getStringValue());
-    //           Assert.assertTrue(
-    //               fvl.get(ChangelogColumn.TIEBREAKER.getBqColumnName()).getLongValue() >= 0);
-    //         });
   }
 
   private boolean waitForFilesToShowUp(Duration howLong, Predicate<? super Blob> checkFile)
