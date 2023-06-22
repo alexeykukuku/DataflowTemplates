@@ -136,7 +136,7 @@ public class BigtableChangeStreamsToGcs {
   }
 
   public static PipelineResult run(BigtableChangeStreamsToGcsOptions options) {
-    LOG.info("Requested File Format is " + options.getOutputFileFormat());
+    LOG.info("Output file format is " + options.getOutputFileFormat());
     LOG.info("Batch size is " + options.getOutputBatchSize());
     LOG.info("Maximum shards count is " + options.getOutputShardsCount());
 
@@ -209,7 +209,7 @@ public class BigtableChangeStreamsToGcs {
                             AfterProcessingTime.pastFirstElementInPane()
                                 .plusDelayOf(windowingDuration),
                             AfterPane.elementCountAtLeast(options.getOutputBatchSize()))))
-                .withAllowedLateness(Duration.standardMinutes(10))
+                .withAllowedLateness(Duration.millis(Long.MAX_VALUE))
                 .discardingFiredPanes())
         .apply(Values.create())
         .apply(
@@ -218,8 +218,6 @@ public class BigtableChangeStreamsToGcs {
                 .setOptions(options)
                 .setBigtableUtils(bigtableUtils)
                 .build());
-
-    // addCbtChangeProducer(pipeline, options);
 
     return pipeline.run();
   }

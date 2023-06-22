@@ -41,6 +41,7 @@ import com.google.cloud.teleport.it.gcp.storage.GcsResourceManager;
 import com.google.cloud.teleport.metadata.TemplateIntegrationTest;
 import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.time.Duration;
@@ -49,6 +50,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import org.apache.avro.file.DataFileReader;
+import org.apache.avro.generic.GenericDatumReader;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.io.DatumReader;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.After;
@@ -85,6 +90,8 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
   private String outputPath;
   private String outputPrefix;
 
+
+
   @Test
   // @Ignore(
   //     "Test is not ready for CI/CD purposes because it doesn't provision CBT resources and "
@@ -103,7 +110,7 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
     BigtableTableSpec cdcTableSpec = new BigtableTableSpec();
     cdcTableSpec.setCdcEnabled(true);
     cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[]{}));
-    /// bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
+    bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
 
     bigtableResourceManager.createAppProfile(
         appProfileId, true, Lists.asList(CLUSTER_NAME, new String[]{}));
@@ -117,6 +124,74 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
                     .addParameter("bigtableReadInstanceId", bigtableResourceManager.getInstanceId())
                     .addParameter("bigtableChangeStreamAppProfile", appProfileId)
                     .addParameter("outputFileFormat", "TEXT")
+                    .addParameter("windowDuration", "10s")
+                    .addParameter("gcsOutputDirectory", outputPath)
+                    .addParameter("schemaOutputFormat", "CHANGELOG_ENTRY")));
+
+    assertThatPipeline(launchInfo).isRunning();
+
+    String rowkey = UUID.randomUUID().toString();
+    String column = UUID.randomUUID().toString();
+    String value = UUID.randomUUID().toString();
+
+    long nowMillis = System.currentTimeMillis();
+    long timestampMicros = nowMillis * 1000;
+
+    RowMutation rowMutation =
+        RowMutation.create(SOURCE_CDC_TABLE, rowkey)
+            .setCell(SOURCE_COLUMN_FAMILY, column, timestampMicros, value);
+
+    ChangelogEntryJson expected = new ChangelogEntryJson();
+    expected.setRowKey(rowkey);
+    expected.setTimestamp(timestampMicros);
+    expected.setCommitTimestamp(nowMillis - 10000); // clock skew tolerance
+    expected.setLowWatermark(0);
+    expected.setColumn(column);
+    expected.setValue(value);
+    expected.setColumnFamily(SOURCE_COLUMN_FAMILY);
+    expected.setModType(ModType.SET_CELL);
+    expected.setIsGc(false);
+
+    bigtableResourceManager.write(rowMutation);
+
+    if (!waitForFilesToShowUp(Duration.ofMinutes(10),
+        new LookForChangelogEntryJsonRecord(expected))) {
+      Assert.fail("Unable to find output file containing row mutation: " + expected);
+    }
+  }
+
+  @Test
+  // @Ignore(
+  //     "Test is not ready for CI/CD purposes because it doesn't provision CBT resources and "
+  //         + "relies on pre-existing static resources until a new admin API client is available
+  // for "
+  //         + "us to set up CDC-enabled resources")
+  public void testSingleMutationChangelogEntryAvroE2E() throws Exception {
+    String appProfileId = generateAppProfileId();
+
+    List<BigtableResourceManagerCluster> clusters = new ArrayList<>();
+    clusters.add(
+        BigtableResourceManagerCluster.create(CLUSTER_NAME, TEST_ZONE, 1, StorageType.HDD));
+
+    bigtableResourceManager.createInstance(clusters);
+
+    BigtableTableSpec cdcTableSpec = new BigtableTableSpec();
+    cdcTableSpec.setCdcEnabled(true);
+    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[]{}));
+    //bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
+
+    bigtableResourceManager.createAppProfile(
+        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[]{}));
+
+    Function<LaunchConfig.Builder, LaunchConfig.Builder> paramsAdder = Function.identity();
+    launchInfo =
+        launchTemplate(
+            paramsAdder.apply(
+                LaunchConfig.builder(testName, specPath)
+                    .addParameter("bigtableReadTableId", SOURCE_CDC_TABLE)
+                    .addParameter("bigtableReadInstanceId", bigtableResourceManager.getInstanceId())
+                    .addParameter("bigtableChangeStreamAppProfile", appProfileId)
+                    .addParameter("outputFileFormat", "AVRO")
                     .addParameter("windowDuration", "10s")
                     .addParameter("gcsOutputDirectory", outputPath)
                     .addParameter("schemaOutputFormat", "CHANGELOG_ENTRY")));
