@@ -18,8 +18,17 @@ package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.teleport.bigtable.ChangelogEntry;
 import com.google.cloud.teleport.bigtable.ChangelogEntryJson;
+import com.google.common.collect.Iterators;
+import java.io.File;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
 import java.util.function.Predicate;
+import org.apache.avro.file.DataFileReader;
+import org.apache.avro.file.SeekableByteArrayInput;
+import org.apache.avro.reflect.ReflectData;
+import org.apache.avro.reflect.ReflectDatumReader;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,21 +47,31 @@ public class LookForChangelogEntryAvroRecord implements Predicate<Blob> {
     LOG.info("Read from GCS file ({}): {}", o.asBlobInfo(), new String(content,
         Charset.defaultCharset()));
 
-    // ChangelogEntry changelogEntry = ...
-    //
-    // Assert.assertEquals(expected.getTimestamp(), changelogEntry.getTimestamp());
-    // Assert.assertEquals(expected.getIsGc(), changelogEntry.getIsGc());
-    // Assert.assertEquals(expected.getModType(), changelogEntry.getModType());
-    // Assert.assertEquals(expected.getRowKey().toString(), changelogEntry.getRowKey().toString());
-    // Assert.assertEquals(expected.getColumnFamily().toString(), changelogEntry.getColumnFamily().toString());
-    // Assert.assertEquals(expected.getLowWatermark(), changelogEntry.getLowWatermark()); // Low watermark is not working yet
-    // Assert.assertEquals(expected.getColumn().toString(), changelogEntry.getColumn().toString());
-    // Assert.assertTrue(expected.getCommitTimestamp() <= changelogEntry.getCommitTimestamp());
-    // Assert.assertTrue(changelogEntry.getTieBreaker() >= 0);
-    // Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampFrom());
-    // Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampTo());
-    // Assert.assertEquals(expected.getValue(), changelogEntry.getValue());
 
-    return true;
+    try (DataFileReader<ChangelogEntry> reader =
+        new DataFileReader<>(
+            new SeekableByteArrayInput(content),
+            new ReflectDatumReader<>(ReflectData.get().getSchema(ChangelogEntry.class)))) {
+
+      for (ChangelogEntry changelogEntry : reader) {
+        Assert.assertEquals(expected.getTimestamp(), changelogEntry.getTimestamp());
+        Assert.assertEquals(expected.getIsGc(), changelogEntry.getIsGc());
+        Assert.assertEquals(expected.getModType(), changelogEntry.getModType());
+        Assert.assertEquals(expected.getRowKey().toString(), changelogEntry.getRowKey().toString());
+        Assert.assertEquals(expected.getColumnFamily().toString(),
+            changelogEntry.getColumnFamily().toString());
+        Assert.assertEquals(expected.getLowWatermark(),
+            changelogEntry.getLowWatermark()); // Low watermark is not working yet
+        Assert.assertEquals(expected.getColumn().toString(), changelogEntry.getColumn().toString());
+        Assert.assertTrue(expected.getCommitTimestamp() <= changelogEntry.getCommitTimestamp());
+        Assert.assertTrue(changelogEntry.getTieBreaker() >= 0);
+        Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampFrom());
+        Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampTo());
+        Assert.assertEquals(expected.getValue(), changelogEntry.getValue());
+      }
+      return true;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 }

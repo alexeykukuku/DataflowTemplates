@@ -25,6 +25,7 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobListOption;
 import com.google.cloud.storage.StorageOptions;
+import com.google.cloud.teleport.bigtable.ChangelogEntry;
 import com.google.cloud.teleport.bigtable.ChangelogEntryJson;
 import com.google.cloud.teleport.bigtable.ModType;
 import com.google.cloud.teleport.it.common.PipelineLauncher.LaunchConfig;
@@ -43,6 +44,7 @@ import com.google.common.collect.Lists;
 import com.google.protobuf.ByteString;
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -209,13 +211,14 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
         RowMutation.create(SOURCE_CDC_TABLE, rowkey)
             .setCell(SOURCE_COLUMN_FAMILY, column, timestampMicros, value);
 
-    ChangelogEntryJson expected = new ChangelogEntryJson();
-    expected.setRowKey(rowkey);
+    ChangelogEntry expected = new ChangelogEntry();
+
+    expected.setRowKey(bb(rowkey));
     expected.setTimestamp(timestampMicros);
     expected.setCommitTimestamp(nowMillis - 10000); // clock skew tolerance
     expected.setLowWatermark(0);
-    expected.setColumn(column);
-    expected.setValue(value);
+    expected.setColumn(bb(column));
+    expected.setValue(bb(value));
     expected.setColumnFamily(SOURCE_COLUMN_FAMILY);
     expected.setModType(ModType.SET_CELL);
     expected.setIsGc(false);
@@ -223,9 +226,13 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
     bigtableResourceManager.write(rowMutation);
 
     if (!waitForFilesToShowUp(Duration.ofMinutes(10),
-        new LookForChangelogEntryJsonRecord(expected))) {
+        new LookForChangelogEntryAvroRecord(expected))) {
       Assert.fail("Unable to find output file containing row mutation: " + expected);
     }
+  }
+
+  private ByteBuffer bb(String value) {
+    return ByteBuffer.wrap(value.getBytes(Charset.defaultCharset()));
   }
 
   private boolean waitForFilesToShowUp(Duration howLong, Predicate<? super Blob> checkFile)
