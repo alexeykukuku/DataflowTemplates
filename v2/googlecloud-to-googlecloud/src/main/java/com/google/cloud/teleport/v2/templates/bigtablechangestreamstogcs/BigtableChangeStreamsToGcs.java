@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.beam.runners.core.construction.ReshuffleTranslation;
@@ -363,18 +364,15 @@ public class BigtableChangeStreamsToGcs {
 
   private static class KeyByIdFn extends DoFn<KV<ByteString, ChangeStreamMutation>, KV<Integer, ChangeStreamMutation>> {
     private static final int NUMBER_OF_BUCKETS = 1000;
+    private final static AtomicLong counter = new AtomicLong(0);
 
     @ProcessElement
     public void processElement(
         @Element KV<ByteString, ChangeStreamMutation> input,
         OutputReceiver<KV<Integer, ChangeStreamMutation>> outputReceiver) {
       ChangeStreamMutation csm = input.getValue();
-      if (csm == null) {
-        return;
-      }
-
-      int hashCode = csm.getRowKey().hashCode();
-      outputReceiver.output(KV.of(hashCode % NUMBER_OF_BUCKETS, csm));
+      Integer key = (int) (counter.incrementAndGet() % NUMBER_OF_BUCKETS);
+      outputReceiver.output(KV.of(key, csm));
     }
   }
 }
