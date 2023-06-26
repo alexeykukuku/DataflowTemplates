@@ -1,7 +1,6 @@
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
-import com.google.protobuf.ByteString;
 import java.util.Iterator;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -18,14 +17,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class DummyLogger2 extends @UnknownKeyFor@NonNull@Initialized
-    PTransform<@UnknownKeyFor @NonNull @Initialized PCollection<KV<ByteString, Iterable<ChangeStreamMutation>>>, PDone> {
+    PTransform<@UnknownKeyFor @NonNull @Initialized PCollection<KV<Integer, Iterable<ChangeStreamMutation>>>, PDone> {
   private final static Logger LOG = LoggerFactory.getLogger(DummyLogger.class);
   private final static ThreadLocal<Long> LAST_LOGGED = ThreadLocal.withInitial(() -> 0L);
   private final static AtomicLong RECORDS_PROCESSED = new AtomicLong(0);
   private final static String WORKER_ID = UUID.randomUUID().toString();
   @Override
   public PDone expand(
-      @UnknownKeyFor @NonNull @Initialized PCollection<KV<ByteString, Iterable<ChangeStreamMutation>>> input) {
+      @UnknownKeyFor @NonNull @Initialized PCollection<KV<Integer, Iterable<ChangeStreamMutation>>> input) {
     input.apply("Just log periodically", ParDo.of(new DummyLogger2.LogDoFn<>()));
     return PDone.in(input.getPipeline());
   }

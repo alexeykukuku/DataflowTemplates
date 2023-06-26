@@ -219,8 +219,9 @@ public class BigtableChangeStreamsToGcs {
 
     if (System.getenv("dummy") != null) {
       if (System.getenv("groupbykey") != null) {
-        mypipeline.apply("GroupByKey stuff", GroupByKey.create())
-            .apply("Dummy logging v2", new DummyLogger2());
+        mypipeline.apply("Resharding", ParDo.of(new KeyByIdFn()))
+                  .apply("GroupByKey stuff", GroupByKey.create())
+                  .apply("Dummy logging v2", new DummyLogger2());
       } else {
         mypipeline
             .apply(Values.create())
@@ -357,6 +358,23 @@ public class BigtableChangeStreamsToGcs {
           timestamp,
           randomData);
       out.output(row);
+    }
+  }
+
+  private static class KeyByIdFn extends DoFn<KV<ByteString, ChangeStreamMutation>, KV<Integer, ChangeStreamMutation>> {
+    private static final int NUMBER_OF_BUCKETS = 1000;
+
+    @ProcessElement
+    public void processElement(
+        @Element KV<ByteString, ChangeStreamMutation> input,
+        OutputReceiver<KV<Integer, ChangeStreamMutation>> outputReceiver) {
+      ChangeStreamMutation csm = input.getValue();
+      if (csm == null) {
+        return;
+      }
+
+      int hashCode = csm.getRowKey().hashCode();
+      outputReceiver.output(KV.of(hashCode % NUMBER_OF_BUCKETS, csm));
     }
   }
 }
