@@ -106,7 +106,7 @@ public interface BigtableChangeStreamsToGcsOptions
   @Default.Integer(20)
   Integer getOutputShardsCount();
 
-  void setOutputShardsCount(Integer numShards);
+  void setOutputShardsCount(Integer shardCount);
 
   @TemplateParameter.Integer(
       order = 7,
@@ -119,7 +119,7 @@ public interface BigtableChangeStreamsToGcsOptions
   @Default.Integer(10000)
   Integer getOutputBatchSize();
 
-  void setOutputBatchSize(Integer numShards);
+  void setOutputBatchSize(Integer batchSize);
 
   @TemplateParameter.Boolean(
       order = 8,

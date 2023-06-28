@@ -50,6 +50,7 @@ import org.apache.beam.sdk.transforms.WithTimestamps;
 import org.apache.beam.sdk.transforms.windowing.AfterFirst;
 import org.apache.beam.sdk.transforms.windowing.AfterPane;
 import org.apache.beam.sdk.transforms.windowing.AfterProcessingTime;
+import org.apache.beam.sdk.transforms.windowing.AfterWatermark;
 import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
@@ -205,11 +206,16 @@ public class BigtableChangeStreamsToGcs {
             Window.<KV<ByteString, ChangeStreamMutation>>into(FixedWindows.of(windowingDuration))
                 .triggering(
                     Repeatedly.forever(
-                        AfterFirst.of(
-                            AfterProcessingTime.pastFirstElementInPane()
-                                .plusDelayOf(windowingDuration),
-                            AfterPane.elementCountAtLeast(options.getOutputBatchSize()))))
-                .withAllowedLateness(Duration.millis(Long.MAX_VALUE))
+                        AfterWatermark.pastEndOfWindow().withEarlyFirings(
+                                AfterFirst.of(AfterProcessingTime.pastFirstElementInPane()
+                                        .plusDelayOf(windowingDuration),
+                                    AfterPane.elementCountAtLeast(options.getOutputBatchSize())))
+                            .withLateFirings(AfterFirst.of(
+                                AfterProcessingTime.pastFirstElementInPane()
+                                    .plusDelayOf(windowingDuration),
+                                AfterPane.elementCountAtLeast(options.getOutputBatchSize())))
+                    )
+                ).withAllowedLateness(Duration.millis(0))
                 .discardingFiredPanes())
         .apply(Values.create())
         .apply(
@@ -219,8 +225,14 @@ public class BigtableChangeStreamsToGcs {
                 .setBigtableUtils(bigtableUtils)
                 .build());
 
+    //TODO: remove this
+    if (System.getenv("producer") != null) {
+      addCbtChangeProducer(pipeline, options);
+    }
+
     return pipeline.run();
   }
+
 
   private static void validateOutputFormat(BigtableChangeStreamsToGcsOptions options) {
     switch (options.getSchemaOutputFormat()) {
