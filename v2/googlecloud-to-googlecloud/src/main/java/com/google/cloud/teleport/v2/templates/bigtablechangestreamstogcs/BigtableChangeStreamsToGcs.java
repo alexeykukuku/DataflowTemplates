@@ -206,16 +206,18 @@ public class BigtableChangeStreamsToGcs {
             Window.<KV<ByteString, ChangeStreamMutation>>into(FixedWindows.of(windowingDuration))
                 .triggering(
                     Repeatedly.forever(
-                        AfterWatermark.pastEndOfWindow().withEarlyFirings(
-                                AfterFirst.of(AfterProcessingTime.pastFirstElementInPane()
+                        AfterWatermark.pastEndOfWindow()
+                            .withEarlyFirings(
+                                AfterFirst.of(
+                                    AfterProcessingTime.pastFirstElementInPane()
                                         .plusDelayOf(windowingDuration),
                                     AfterPane.elementCountAtLeast(options.getOutputBatchSize())))
-                            .withLateFirings(AfterFirst.of(
-                                AfterProcessingTime.pastFirstElementInPane()
-                                    .plusDelayOf(windowingDuration),
-                                AfterPane.elementCountAtLeast(options.getOutputBatchSize())))
-                    )
-                ).withAllowedLateness(Duration.millis(0))
+                            .withLateFirings(
+                                AfterFirst.of(
+                                    AfterProcessingTime.pastFirstElementInPane()
+                                        .plusDelayOf(windowingDuration),
+                                    AfterPane.elementCountAtLeast(options.getOutputBatchSize())))))
+                .withAllowedLateness(Duration.millis(0))
                 .discardingFiredPanes())
         .apply(Values.create())
         .apply(
@@ -225,14 +227,13 @@ public class BigtableChangeStreamsToGcs {
                 .setBigtableUtils(bigtableUtils)
                 .build());
 
-    //TODO: remove this
+    // TODO: remove this
     if (System.getenv("producer") != null) {
       addCbtChangeProducer(pipeline, options);
     }
 
     return pipeline.run();
   }
-
 
   private static void validateOutputFormat(BigtableChangeStreamsToGcsOptions options) {
     switch (options.getSchemaOutputFormat()) {
@@ -244,12 +245,13 @@ public class BigtableChangeStreamsToGcs {
                   + " schema output format can be used with AVRO and TEXT output file formats");
         }
         break;
-      case BIGTABLEROW:
+      case BIGTABLE_ROW:
         if (options.getOutputFileFormat() != FileFormat.AVRO) {
           throw new IllegalArgumentException(
-              BigtableSchemaFormat.BIGTABLEROW
+              BigtableSchemaFormat.BIGTABLE_ROW
                   + " schema output format can be used with AVRO output file format");
         }
+        break;
       default:
         throw new IllegalArgumentException(
             "Unsupported schema output format: " + options.getSchemaOutputFormat());

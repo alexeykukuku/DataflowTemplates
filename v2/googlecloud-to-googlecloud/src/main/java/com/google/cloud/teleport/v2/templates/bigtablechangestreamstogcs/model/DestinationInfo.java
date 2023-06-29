@@ -16,7 +16,6 @@
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.model;
 
 import java.io.Serializable;
-import java.nio.charset.Charset;
 
 public class DestinationInfo implements Serializable {
 

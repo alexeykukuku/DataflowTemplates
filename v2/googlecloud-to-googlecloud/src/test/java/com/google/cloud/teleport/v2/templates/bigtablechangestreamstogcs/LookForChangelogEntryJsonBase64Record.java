@@ -15,7 +15,11 @@
  */
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 
+import static com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.Tools.bbToBase64String;
+import static com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs.Tools.bbToString;
+
 import com.google.cloud.storage.Blob;
+import com.google.cloud.teleport.bigtable.ChangelogEntry;
 import com.google.cloud.teleport.bigtable.ChangelogEntryJson;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -25,11 +29,13 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LookForChangelogEntryJsonRecord implements Predicate<Blob> {
-  private static final Logger LOG = LoggerFactory.getLogger(LookForChangelogEntryJsonRecord.class);
-  private final ChangelogEntryJson expected;
+public class LookForChangelogEntryJsonBase64Record implements Predicate<Blob> {
 
-  public LookForChangelogEntryJsonRecord(ChangelogEntryJson expected) {
+  private static final Logger LOG = LoggerFactory.getLogger(
+      LookForChangelogEntryJsonBase64Record.class);
+  private final ChangelogEntry expected;
+
+  public LookForChangelogEntryJsonBase64Record(ChangelogEntry expected) {
     this.expected = expected;
   }
 
@@ -52,18 +58,21 @@ public class LookForChangelogEntryJsonRecord implements Predicate<Blob> {
     Assert.assertEquals(expected.getTimestamp(), changelogEntry.getTimestamp());
     Assert.assertEquals(expected.getIsGc(), changelogEntry.getIsGc());
     Assert.assertEquals(expected.getModType(), changelogEntry.getModType());
-    Assert.assertEquals(expected.getRowKey().toString(), changelogEntry.getRowKey().toString());
+    Assert.assertEquals(bbToBase64String(expected.getRowKey()),
+        changelogEntry.getRowKey().toString());
     Assert.assertEquals(
         expected.getColumnFamily().toString(), changelogEntry.getColumnFamily().toString());
     Assert.assertEquals(
         expected.getLowWatermark(),
         changelogEntry.getLowWatermark()); // Low watermark is not working yet
-    Assert.assertEquals(expected.getColumn().toString(), changelogEntry.getColumn().toString());
+    Assert.assertEquals(bbToBase64String(expected.getColumn()),
+        changelogEntry.getColumn().toString());
     Assert.assertTrue(expected.getCommitTimestamp() <= changelogEntry.getCommitTimestamp());
     Assert.assertTrue(changelogEntry.getTieBreaker() >= 0);
     Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampFrom());
     Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampTo());
-    Assert.assertEquals(expected.getValue(), changelogEntry.getValue());
+    Assert.assertEquals(bbToBase64String(expected.getValue()),
+        changelogEntry.getValue().toString());
 
     return true;
   }

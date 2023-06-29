@@ -62,7 +62,6 @@ public class BigtableUtilsTest {
   final Timestamp TIMESTAMP_TO = Timestamp.MAX_VALUE;
   final ByteBuffer VALUE = getByteBufferFromString("VALUE", CHARSET);
   final ByteBuffer ROW_KEY = getByteBufferFromString("ROW_KEY", CHARSET);
-  final String FAKE_TOKEN = "faketoken";
 
   /** Pipeline specific variables to be used throughout testing of {@link BigtableUtils} */
   final String FAKE_INSTANCE_ID = "fakeinstance";
@@ -386,4 +385,6 @@ public class BigtableUtilsTest {
         .setTimestampTo(null)
         .build();
   }
+
+
 }

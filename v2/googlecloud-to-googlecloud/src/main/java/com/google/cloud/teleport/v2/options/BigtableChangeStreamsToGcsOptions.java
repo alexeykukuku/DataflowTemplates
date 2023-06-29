@@ -32,7 +32,7 @@ public interface BigtableChangeStreamsToGcsOptions
       optional = true,
       description = "Output file format",
       helpText =
-          "The format of the output Cloud Storage file. Allowed formats are TEXT, AVRO. Default is AVRO.")
+          "The format of the output Cloud Storage file. Allowed formats are TEXT, AVRO. Defaults to AVRO.")
   @Default.Enum("AVRO")
   FileFormat getOutputFileFormat();
 
@@ -62,10 +62,12 @@ public interface BigtableChangeStreamsToGcsOptions
 
   @TemplateParameter.Enum(
       order = 4,
-      enumOptions = {"CHANGELOG_ENTRY", "BIGTABLEROW"},
+      enumOptions = {"CHANGELOG_ENTRY", "BIGTABLE_ROW"},
       optional = true,
       description = "Output schema format",
-      helpText = "Schema chosen for outputting data to GCS.")
+      helpText =
+          "Schema chosen for outputting data to GCS. CHANGELOG_ENTRY support TEXT and AVRO "
+              + "output formats, BIGTABLE_ROW only supports AVRO output")
   @Default.Enum("CHANGELOG_ENTRY")
   BigtableSchemaFormat getSchemaOutputFormat();
 
@@ -115,7 +117,7 @@ public interface BigtableChangeStreamsToGcsOptions
       helpText =
           "Batching mutations reduces overhead and cost. Depending on the size of values "
               + "written to Cloud Bigtable the batch size might need to be adjusted lower to avoid "
-              + "memory pressures on the worker fleet.")
+              + "memory pressures on the worker fleet. Defaults to 10000")
   @Default.Integer(10000)
   Integer getOutputBatchSize();
 

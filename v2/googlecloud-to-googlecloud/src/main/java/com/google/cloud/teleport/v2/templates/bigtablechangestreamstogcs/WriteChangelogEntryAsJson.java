@@ -26,7 +26,6 @@ import java.nio.charset.Charset;
 import java.util.Base64;
 import org.apache.beam.sdk.transforms.SimpleFunction;
 
-
 public class WriteChangelogEntryAsJson extends SimpleFunction<ChangelogEntry, String> {
   private static final ThreadLocal<Gson> gsonThreadLocal = ThreadLocal.withInitial(Gson::new);
   private final DestinationInfo destination;
@@ -45,24 +44,19 @@ public class WriteChangelogEntryAsJson extends SimpleFunction<ChangelogEntry, St
 
     ChangelogEntryJson jsonType = new ChangelogEntryJson();
     jsonType.setColumn(
-        bytesToString(
-            record.getColumn(),
-            destination.isColumnQualifierBase64Encoded(),
-            charset));
+        bytesToString(record.getColumn(), destination.isColumnQualifierBase64Encoded(), charset));
     jsonType.setModType(record.getModType());
     jsonType.setTimestamp(record.getTimestamp());
     jsonType.setTimestampTo(record.getTimestampTo());
     jsonType.setTimestampFrom(record.getTimestampFrom());
     jsonType.setIsGc(record.getIsGc());
     jsonType.setValue(
-        bytesToString(
-            record.getValue(), destination.isValueBase64Encoded(), charset));
+        bytesToString(record.getValue(), destination.isValueBase64Encoded(), charset));
     jsonType.setColumnFamily(record.getColumnFamily());
     jsonType.setCommitTimestamp(record.getCommitTimestamp());
     jsonType.setLowWatermark(record.getLowWatermark());
     jsonType.setRowKey(
-        bytesToString(
-            record.getRowKey(), destination.isRowkeyBase64Encoded(), charset));
+        bytesToString(record.getRowKey(), destination.isRowkeyBase64Encoded(), charset));
     jsonType.setTieBreaker(record.getTieBreaker());
     return gsonThreadLocal.get().toJson(jsonType, ChangelogEntryJson.class);
   }

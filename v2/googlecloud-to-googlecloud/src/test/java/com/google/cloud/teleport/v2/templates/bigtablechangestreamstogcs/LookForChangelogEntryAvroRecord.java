@@ -17,13 +17,7 @@ package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 
 import com.google.cloud.storage.Blob;
 import com.google.cloud.teleport.bigtable.ChangelogEntry;
-import com.google.cloud.teleport.bigtable.ChangelogEntryJson;
-import com.google.common.collect.Iterators;
-import java.io.File;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import java.util.function.Predicate;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.SeekableByteArrayInput;
@@ -34,7 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class LookForChangelogEntryAvroRecord implements Predicate<Blob> {
-  private final static Logger LOG = LoggerFactory.getLogger(LookForChangelogEntryAvroRecord.class);
+  private static final Logger LOG = LoggerFactory.getLogger(LookForChangelogEntryAvroRecord.class);
   private final ChangelogEntry expected;
 
   public LookForChangelogEntryAvroRecord(ChangelogEntry expected) {
@@ -44,9 +38,10 @@ public class LookForChangelogEntryAvroRecord implements Predicate<Blob> {
   @Override
   public boolean test(Blob o) {
     byte[] content = o.getContent();
-    LOG.info("Read from GCS file ({}): {}", o.asBlobInfo(), new String(content,
-        Charset.defaultCharset()));
-
+    LOG.info(
+        "Read from GCS file ({}): {}",
+        o.asBlobInfo(),
+        new String(content, Charset.defaultCharset()));
 
     try (DataFileReader<ChangelogEntry> reader =
         new DataFileReader<>(
@@ -58,9 +53,10 @@ public class LookForChangelogEntryAvroRecord implements Predicate<Blob> {
         Assert.assertEquals(expected.getIsGc(), changelogEntry.getIsGc());
         Assert.assertEquals(expected.getModType(), changelogEntry.getModType());
         Assert.assertEquals(expected.getRowKey().toString(), changelogEntry.getRowKey().toString());
-        Assert.assertEquals(expected.getColumnFamily().toString(),
-            changelogEntry.getColumnFamily().toString());
-        Assert.assertEquals(expected.getLowWatermark(),
+        Assert.assertEquals(
+            expected.getColumnFamily().toString(), changelogEntry.getColumnFamily().toString());
+        Assert.assertEquals(
+            expected.getLowWatermark(),
             changelogEntry.getLowWatermark()); // Low watermark is not working yet
         Assert.assertEquals(expected.getColumn().toString(), changelogEntry.getColumn().toString());
         Assert.assertTrue(expected.getCommitTimestamp() <= changelogEntry.getCommitTimestamp());

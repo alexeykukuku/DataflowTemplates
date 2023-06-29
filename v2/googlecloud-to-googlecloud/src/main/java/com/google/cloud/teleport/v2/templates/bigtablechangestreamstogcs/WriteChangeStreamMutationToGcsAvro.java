@@ -85,7 +85,7 @@ public abstract class WriteChangeStreamMutationToGcsAvro
      * The {@link withNumShards} option specifies the number of shards passed by the user.
      * The {@link withTempDirectory} option sets the base directory used to generate temporary files.
      */
-    if (schemaOutputFormat() == BigtableSchemaFormat.BIGTABLEROW) {
+    if (schemaOutputFormat() == BigtableSchemaFormat.BIGTABLE_ROW) {
       return changelogEntry
           .apply(
               "ChangelogEntry To BigtableRow",
