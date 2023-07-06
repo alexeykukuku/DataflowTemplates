@@ -45,8 +45,8 @@ public interface BigtableChangeStreamsToGcsOptions
       helpText =
           "The window duration/size in which data will be written to Cloud Storage. Allowed formats are: Ns (for "
               + "seconds, example: 5s), Nm (for minutes, example: 12m), Nh (for hours, example: 2h).",
-      example = "5m")
-  @Default.String("5m")
+      example = "1h")
+  @Default.String("1h")
   String getWindowDuration();
 
   void setWindowDuration(String windowDuration);
@@ -89,9 +89,9 @@ public interface BigtableChangeStreamsToGcsOptions
       order = 6,
       optional = true,
       description = "Output filename prefix of the files to write",
-      helpText = "The prefix to place on each windowed file.",
-      example = "output-")
-  @Default.String("output")
+      helpText = "The prefix to place on each windowed file. Defaults to \"changelog-\"",
+      example = "changelog-")
+  @Default.String("changelog-")
   String getOutputFilenamePrefix();
 
   void setOutputFilenamePrefix(String outputFilenamePrefix);

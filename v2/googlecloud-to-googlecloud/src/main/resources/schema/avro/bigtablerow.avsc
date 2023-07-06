@@ -13,7 +13,7 @@
             "fields": [
               { "name" : "family", "type" : "string"},
               { "name" : "qualifier", "type" : "bytes"},
-              { "name" : "timestamp", "type" : "long", "logicalType" : "timestamp-micros"},
+              { "name" : "timestamp", "type" : "long"},
               { "name" : "value", "type" : "bytes"}
             ]
           }

@@ -29,7 +29,7 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LookForChangelogEntryJsonBase64Record implements Predicate<Blob> {
+public class LookForChangelogEntryJsonBase64Record extends CommitTimeAwarePredicate {
 
   private static final Logger LOG = LoggerFactory.getLogger(
       LookForChangelogEntryJsonBase64Record.class);
@@ -68,6 +68,7 @@ public class LookForChangelogEntryJsonBase64Record implements Predicate<Blob> {
     Assert.assertEquals(bbToBase64String(expected.getColumn()),
         changelogEntry.getColumn().toString());
     Assert.assertTrue(expected.getCommitTimestamp() <= changelogEntry.getCommitTimestamp());
+    observeCommitTime(changelogEntry.getCommitTimestamp());
     Assert.assertTrue(changelogEntry.getTieBreaker() >= 0);
     Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampFrom());
     Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampTo());

@@ -27,7 +27,7 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LookForChangelogEntryAvroRecord implements Predicate<Blob> {
+public class LookForChangelogEntryAvroRecord extends CommitTimeAwarePredicate {
   private static final Logger LOG = LoggerFactory.getLogger(LookForChangelogEntryAvroRecord.class);
   private final ChangelogEntry expected;
 
@@ -60,6 +60,7 @@ public class LookForChangelogEntryAvroRecord implements Predicate<Blob> {
             changelogEntry.getLowWatermark()); // Low watermark is not working yet
         Assert.assertEquals(expected.getColumn().toString(), changelogEntry.getColumn().toString());
         Assert.assertTrue(expected.getCommitTimestamp() <= changelogEntry.getCommitTimestamp());
+        observeCommitTime(changelogEntry.getCommitTimestamp());
         Assert.assertTrue(changelogEntry.getTieBreaker() >= 0);
         Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampFrom());
         Assert.assertEquals(expected.getTimestampFrom(), changelogEntry.getTimestampTo());

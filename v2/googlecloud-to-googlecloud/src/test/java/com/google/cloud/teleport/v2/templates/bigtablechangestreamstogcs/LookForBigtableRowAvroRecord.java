@@ -30,7 +30,7 @@ import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class LookForBigtableRowAvroRecord implements Predicate<Blob> {
+public class LookForBigtableRowAvroRecord extends CommitTimeAwarePredicate {
 
   private static final Logger LOG = LoggerFactory.getLogger(LookForBigtableRowAvroRecord.class);
   private final ChangelogEntry expected;
@@ -84,6 +84,7 @@ public class LookForBigtableRowAvroRecord implements Predicate<Blob> {
               Assert.assertEquals(expected.getColumnFamily().toString(), value);
               break;
             case "commit_timestamp":
+              observeCommitTime(Long.parseLong(value));
               Assert.assertTrue(expected.getCommitTimestamp() <= Long.parseLong(value));
               break;
             case "low_watermark":
