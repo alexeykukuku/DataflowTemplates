@@ -41,6 +41,7 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.io.GenerateSequence;
 import org.apache.beam.sdk.io.gcp.bigtable.BigtableIO;
+import org.apache.beam.sdk.io.gcp.bigtable.BigtableIO.ExistingPipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.ParDo;
@@ -194,6 +195,9 @@ public class BigtableChangeStreamsToGcs {
             BigtableIO.readChangeStream()
                 .withProjectId(projectId)
                 .withChangeStreamName(options.getBigtableChangeStreamName())
+                .withExistingPipelineOptions(
+                    options.getBigtableChangeStreamResume() ? ExistingPipelineOptions.RESUME_OR_FAIL
+                        : ExistingPipelineOptions.FAIL_IF_EXISTS)
                 .withAppProfileId(options.getBigtableChangeStreamAppProfile())
                 .withInstanceId(options.getBigtableReadInstanceId())
                 .withTableId(options.getBigtableReadTableId())

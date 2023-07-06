@@ -511,6 +511,7 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
             paramsAdder.apply(
                 LaunchConfig.builder(testName, specPath)
                     .addParameter("bigtableChangeStreamName", persistentName)
+                    .addParameter("bigtableChangeStreamResume", "false")
                     .addParameter("bigtableReadTableId", SOURCE_CDC_TABLE)
                     .addParameter("bigtableReadInstanceId", bigtableResourceManager.getInstanceId())
                     .addParameter("bigtableChangeStreamAppProfile", appProfileId)
@@ -570,6 +571,7 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
             paramsAdder2.apply(
                 LaunchConfig.builder(testName, specPath)
                     .addParameter("bigtableChangeStreamName", persistentName)
+                    .addParameter("bigtableChangeStreamResume", "true")
                     .addParameter("bigtableReadTableId", SOURCE_CDC_TABLE)
                     .addParameter("bigtableReadInstanceId", bigtableResourceManager.getInstanceId())
                     .addParameter("bigtableChangeStreamAppProfile", appProfileId)
