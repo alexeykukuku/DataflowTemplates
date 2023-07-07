@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Google LLC
+ * Copyright (C) 2023 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
@@ -16,8 +16,6 @@
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 
 import com.google.cloud.Timestamp;
-import com.google.cloud.bigtable.beam.CloudBigtableIO;
-import com.google.cloud.bigtable.beam.CloudBigtableTableConfiguration;
 import com.google.cloud.bigtable.data.v2.models.ChangeStreamMutation;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
@@ -33,18 +31,14 @@ import com.google.cloud.teleport.v2.utils.WriteToGCSUtility.FileFormat;
 import com.google.protobuf.ByteString;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
-import org.apache.beam.sdk.io.GenerateSequence;
 import org.apache.beam.sdk.io.gcp.bigtable.BigtableIO;
 import org.apache.beam.sdk.io.gcp.bigtable.BigtableIO.ExistingPipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
-import org.apache.beam.sdk.transforms.DoFn;
-import org.apache.beam.sdk.transforms.ParDo;
 import org.apache.beam.sdk.transforms.SerializableFunction;
 import org.apache.beam.sdk.transforms.Values;
 import org.apache.beam.sdk.transforms.WithTimestamps;
@@ -56,11 +50,7 @@ import org.apache.beam.sdk.transforms.windowing.FixedWindows;
 import org.apache.beam.sdk.transforms.windowing.Repeatedly;
 import org.apache.beam.sdk.transforms.windowing.Window;
 import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.PCollection;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.hbase.client.Mutation;
-import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.util.Bytes;
 import org.joda.time.Duration;
 import org.joda.time.Instant;
 import org.slf4j.Logger;
@@ -96,33 +86,6 @@ public class BigtableChangeStreamsToGcs {
             .as(BigtableChangeStreamsToGcsOptions.class);
 
     run(options);
-  }
-
-  private static void addCbtChangeProducer(
-      Pipeline pipeline, BigtableChangeStreamsToGcsOptions options) {
-    int kbPerRow = 10;
-    int rate = 20000;
-    int numRows = 50000000;
-    String columnFamily = "cf";
-
-    String generateLabel = String.format("Generate some data: %d rows", numRows);
-    String mutationLabel = String.format("Create mutations that write %dKB to each row", kbPerRow);
-
-    PCollection<Mutation> mutations =
-        pipeline
-            .apply(
-                generateLabel,
-                GenerateSequence.from(0).to(numRows).withRate(rate, Duration.standardSeconds(1)))
-            .apply(mutationLabel, ParDo.of(new CreateMutationFn(kbPerRow * 1024L, columnFamily)));
-
-    mutations.apply(
-        String.format("Write data to table %s", options.getBigtableReadTableId()),
-        CloudBigtableIO.writeToTable(
-            new CloudBigtableTableConfiguration.Builder()
-                .withProjectId(options.getProject())
-                .withInstanceId(options.getBigtableReadInstanceId())
-                .withTableId(options.getBigtableReadTableId())
-                .build()));
   }
 
   private static String getProjectId(BigtableChangeStreamsToGcsOptions options) {
@@ -231,11 +194,6 @@ public class BigtableChangeStreamsToGcs {
                 .setBigtableUtils(bigtableUtils)
                 .build());
 
-    // TODO: remove this
-    if (System.getenv("producer") != null) {
-      addCbtChangeProducer(pipeline, options);
-    }
-
     return pipeline.run();
   }
 
@@ -317,42 +275,11 @@ public class BigtableChangeStreamsToGcs {
     }
   }
 
-  // TODO: copied from CBT to BQ
   private static Instant toInstant(Timestamp timestamp) {
     if (timestamp == null) {
       return null;
     } else {
       return Instant.ofEpochMilli(timestamp.getSeconds() * 1000 + timestamp.getNanos() / 1000000);
-    }
-  }
-
-  static class CreateMutationFn extends DoFn<Long, Mutation> {
-
-    private final long rowSize;
-    private final Random random = new Random();
-    private final String columnFamily;
-
-    public CreateMutationFn(long rowSize, String columnFamily) {
-      this.rowSize = rowSize;
-      this.columnFamily = columnFamily;
-    }
-
-    @ProcessElement
-    public void processElement(@Element Long rowkey, OutputReceiver<Mutation> out) {
-      long timestamp = System.currentTimeMillis();
-
-      // Pad and reverse the rowkey for more distributed writes
-      String numberFormat = "%0" + 30 + "d";
-      String paddedRowkey = String.format(numberFormat, rowkey);
-      String reversedRowkey = new StringBuilder(paddedRowkey).reverse().toString();
-      Put row = new Put(Bytes.toBytes(reversedRowkey));
-
-      // Generate random bytes
-      byte[] randomData = new byte[(int) rowSize];
-
-      random.nextBytes(randomData);
-      row.addColumn(Bytes.toBytes(columnFamily), Bytes.toBytes("C"), timestamp, randomData);
-      out.output(row);
     }
   }
 }
