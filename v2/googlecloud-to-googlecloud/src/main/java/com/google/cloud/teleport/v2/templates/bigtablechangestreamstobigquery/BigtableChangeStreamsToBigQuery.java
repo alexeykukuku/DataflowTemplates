@@ -198,7 +198,8 @@ public final class BigtableChangeStreamsToBigQuery {
         BigtableIO.readChangeStream()
             .withChangeStreamName(options.getBigtableChangeStreamName())
             .withExistingPipelineOptions(
-                options.getBigtableChangeStreamResume() ? ExistingPipelineOptions.RESUME_OR_FAIL
+                options.getBigtableChangeStreamResume()
+                    ? ExistingPipelineOptions.RESUME_OR_FAIL
                     : ExistingPipelineOptions.FAIL_IF_EXISTS)
             .withProjectId(bigtableProject)
             .withMetadataTableInstanceId(options.getBigtableChangeStreamMetadataInstanceId())

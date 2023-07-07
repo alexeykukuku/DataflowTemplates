@@ -18,7 +18,6 @@ package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.teleport.bigtable.ChangelogEntry;
 import java.nio.charset.Charset;
-import java.util.function.Predicate;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.SeekableByteArrayInput;
 import org.apache.avro.reflect.ReflectData;

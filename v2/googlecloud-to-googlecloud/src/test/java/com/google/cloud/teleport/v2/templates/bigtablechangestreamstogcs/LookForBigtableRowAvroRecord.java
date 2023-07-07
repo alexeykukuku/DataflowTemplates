@@ -21,7 +21,6 @@ import com.google.cloud.storage.Blob;
 import com.google.cloud.teleport.bigtable.BigtableCell;
 import com.google.cloud.teleport.bigtable.BigtableRow;
 import com.google.cloud.teleport.bigtable.ChangelogEntry;
-import java.util.function.Predicate;
 import org.apache.avro.file.DataFileReader;
 import org.apache.avro.file.SeekableByteArrayInput;
 import org.apache.avro.reflect.ReflectData;
@@ -91,12 +90,12 @@ public class LookForBigtableRowAvroRecord extends CommitTimeAwarePredicate {
               Assert.assertEquals(expected.getLowWatermark(), Long.parseLong(value));
               break;
             case "timestamp_from":
-              Assert.assertEquals(expected.getTimestampFrom(),
-                  (value == null ? null : Long.parseLong(value)));
+              Assert.assertEquals(
+                  expected.getTimestampFrom(), (value == null ? null : Long.parseLong(value)));
               break;
             case "timestamp_to":
-              Assert.assertEquals(expected.getTimestampTo(),
-                  (value == null ? null : Long.parseLong(value)));
+              Assert.assertEquals(
+                  expected.getTimestampTo(), (value == null ? null : Long.parseLong(value)));
               break;
             default:
               throw new IllegalStateException("Unexpected column qualifier: " + qualifier);
@@ -108,5 +107,4 @@ public class LookForBigtableRowAvroRecord extends CommitTimeAwarePredicate {
       throw new RuntimeException(e);
     }
   }
-
 }

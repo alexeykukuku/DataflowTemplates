@@ -18,7 +18,6 @@ package com.google.cloud.teleport.v2.templates.bigtablechangestreamstogcs;
 import static com.google.cloud.teleport.it.truthmatchers.PipelineAsserts.assertThatPipeline;
 
 import com.google.api.gax.paging.Page;
-import com.google.api.services.dataflow.model.Job;
 import com.google.cloud.bigtable.admin.v2.models.StorageType;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.cloud.storage.Blob;
@@ -28,8 +27,6 @@ import com.google.cloud.storage.StorageOptions;
 import com.google.cloud.teleport.bigtable.ChangelogEntry;
 import com.google.cloud.teleport.bigtable.ChangelogEntryJson;
 import com.google.cloud.teleport.bigtable.ModType;
-import com.google.cloud.teleport.it.common.PipelineLauncher;
-import com.google.cloud.teleport.it.common.PipelineLauncher.JobState;
 import com.google.cloud.teleport.it.common.PipelineLauncher.LaunchConfig;
 import com.google.cloud.teleport.it.common.PipelineLauncher.LaunchInfo;
 import com.google.cloud.teleport.it.common.PipelineOperator;
@@ -47,7 +44,6 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.sql.SQLOutput;
 import java.text.SimpleDateFormat;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -56,7 +52,6 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import net.bytebuddy.build.Plugin.Factory.Simple;
 import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.junit.After;
@@ -69,9 +64,7 @@ import org.junit.runners.JUnit4;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Integration test for {@link BigtableChangeStreamsToGcs}.
- */
+/** Integration test for {@link BigtableChangeStreamsToGcs}. */
 @Category(TemplateIntegrationTest.class)
 @TemplateIntegrationTest(BigtableChangeStreamsToGcs.class)
 @RunWith(JUnit4.class)
@@ -113,11 +106,11 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     BigtableTableSpec cdcTableSpec = new BigtableTableSpec();
     cdcTableSpec.setCdcEnabled(true);
-    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[]{}));
-    //bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
+    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[] {}));
+    // bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
 
     bigtableResourceManager.createAppProfile(
-        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[]{}));
+        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[] {}));
 
     Function<LaunchConfig.Builder, LaunchConfig.Builder> paramsAdder = Function.identity();
     launchInfo =
@@ -139,15 +132,18 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
     String column = UUID.randomUUID().toString();
 
     // https://en.wikipedia.org/wiki/KOI8-R
-    byte[] value_russian_letter_b_in_koi8_r = new byte[]{(byte) 0xc2};
+    byte[] value_russian_letter_b_in_koi8_r = new byte[] {(byte) 0xc2};
 
     long nowMillis = System.currentTimeMillis();
     long timestampMicros = nowMillis * 1000;
 
     RowMutation rowMutation =
         RowMutation.create(SOURCE_CDC_TABLE, rowkey)
-            .setCell(SOURCE_COLUMN_FAMILY, ByteString.copyFrom(column, Charset.defaultCharset()),
-                timestampMicros, ByteString.copyFrom(value_russian_letter_b_in_koi8_r));
+            .setCell(
+                SOURCE_COLUMN_FAMILY,
+                ByteString.copyFrom(column, Charset.defaultCharset()),
+                timestampMicros,
+                ByteString.copyFrom(value_russian_letter_b_in_koi8_r));
 
     ChangelogEntryJson expected = new ChangelogEntryJson();
     expected.setRowKey(rowkey);
@@ -155,16 +151,18 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
     expected.setCommitTimestamp(nowMillis - 10000); // clock skew tolerance
     expected.setLowWatermark(0);
     expected.setColumn(column);
-    expected.setValue(new String(value_russian_letter_b_in_koi8_r,
-        Charset.forName("KOI8-R")));
+    expected.setValue(new String(value_russian_letter_b_in_koi8_r, Charset.forName("KOI8-R")));
     expected.setColumnFamily(SOURCE_COLUMN_FAMILY);
     expected.setModType(ModType.SET_CELL);
     expected.setIsGc(false);
 
     bigtableResourceManager.write(rowMutation);
 
-    if (!waitForFilesToShowUpAt(outputPath, outputPrefix,
-        Duration.ofMinutes(10), new LookForChangelogEntryJsonRecord(expected))) {
+    if (!waitForFilesToShowUpAt(
+        outputPath,
+        outputPrefix,
+        Duration.ofMinutes(10),
+        new LookForChangelogEntryJsonRecord(expected))) {
       Assert.fail("Unable to find output file containing row mutation: " + expected);
     }
   }
@@ -186,11 +184,11 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     BigtableTableSpec cdcTableSpec = new BigtableTableSpec();
     cdcTableSpec.setCdcEnabled(true);
-    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[]{}));
-    //bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
+    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[] {}));
+    // bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
 
     bigtableResourceManager.createAppProfile(
-        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[]{}));
+        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[] {}));
 
     Function<LaunchConfig.Builder, LaunchConfig.Builder> paramsAdder = Function.identity();
     launchInfo =
@@ -234,8 +232,11 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     bigtableResourceManager.write(rowMutation);
 
-    if (!waitForFilesToShowUpAt(outputPath, outputPrefix,
-        Duration.ofMinutes(10), new LookForChangelogEntryJsonBase64Record(expected))) {
+    if (!waitForFilesToShowUpAt(
+        outputPath,
+        outputPrefix,
+        Duration.ofMinutes(10),
+        new LookForChangelogEntryJsonBase64Record(expected))) {
       Assert.fail("Unable to find output file containing row mutation: " + expected);
     }
   }
@@ -257,11 +258,11 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     BigtableTableSpec cdcTableSpec = new BigtableTableSpec();
     cdcTableSpec.setCdcEnabled(true);
-    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[]{}));
+    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[] {}));
     // bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
 
     bigtableResourceManager.createAppProfile(
-        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[]{}));
+        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[] {}));
 
     Function<LaunchConfig.Builder, LaunchConfig.Builder> paramsAdder = Function.identity();
     launchInfo =
@@ -303,8 +304,11 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     bigtableResourceManager.write(rowMutation);
 
-    if (!waitForFilesToShowUpAt(outputPath, outputPrefix,
-        Duration.ofMinutes(10), new LookForChangelogEntryAvroRecord(expected))) {
+    if (!waitForFilesToShowUpAt(
+        outputPath,
+        outputPrefix,
+        Duration.ofMinutes(10),
+        new LookForChangelogEntryAvroRecord(expected))) {
       Assert.fail("Unable to find output file containing row mutation: " + expected);
     }
   }
@@ -326,11 +330,11 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     BigtableTableSpec cdcTableSpec = new BigtableTableSpec();
     cdcTableSpec.setCdcEnabled(true);
-    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[]{}));
+    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[] {}));
     // bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
 
     bigtableResourceManager.createAppProfile(
-        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[]{}));
+        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[] {}));
 
     Function<LaunchConfig.Builder, LaunchConfig.Builder> paramsAdder = Function.identity();
     launchInfo =
@@ -372,8 +376,11 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     bigtableResourceManager.write(rowMutation);
 
-    if (!waitForFilesToShowUpAt(outputPath, outputPrefix,
-        Duration.ofMinutes(10), new LookForBigtableRowAvroRecord(expected))) {
+    if (!waitForFilesToShowUpAt(
+        outputPath,
+        outputPrefix,
+        Duration.ofMinutes(10),
+        new LookForBigtableRowAvroRecord(expected))) {
       Assert.fail("Unable to find output file containing row mutation: " + expected);
     }
   }
@@ -395,11 +402,11 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     BigtableTableSpec cdcTableSpec = new BigtableTableSpec();
     cdcTableSpec.setCdcEnabled(true);
-    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[]{}));
+    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[] {}));
     // bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
 
     bigtableResourceManager.createAppProfile(
-        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[]{}));
+        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[] {}));
 
     Function<LaunchConfig.Builder, LaunchConfig.Builder> paramsAdder = Function.identity();
     launchInfo =
@@ -453,8 +460,7 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
     // Adding 1.5s just to make sure we don't capture this earliest record
     long microsCutoff = predicate.getEarliestCommitTime() + 1500000L;
 
-    pipelineLauncher.cancelJob(
-        launchInfo.projectId(), launchInfo.region(), launchInfo.jobId());
+    pipelineLauncher.cancelJob(launchInfo.projectId(), launchInfo.region(), launchInfo.jobId());
 
     Function<LaunchConfig.Builder, LaunchConfig.Builder> paramsAdder2 = Function.identity();
     launchInfo =
@@ -465,8 +471,8 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
                     .addParameter("bigtableReadInstanceId", bigtableResourceManager.getInstanceId())
                     .addParameter("bigtableChangeStreamAppProfile", appProfileId)
                     .addParameter("outputFileFormat", "AVRO")
-                    .addParameter("bigtableChangeStreamStartTimestamp",
-                        formatTimeMicros(microsCutoff))
+                    .addParameter(
+                        "bigtableChangeStreamStartTimestamp", formatTimeMicros(microsCutoff))
                     .addParameter("windowDuration", "10s")
                     .addParameter("gcsOutputDirectory", outputPath2)
                     .addParameter("schemaOutputFormat", "BIGTABLE_ROW")));
@@ -474,7 +480,8 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
     assertThatPipeline(launchInfo).isRunning();
 
     var latestPredicate = new LookForBigtableRowAvroRecord(expected);
-    if (!waitForFilesToShowUpAt(outputPath2, outputPrefix2, Duration.ofMinutes(10), latestPredicate)) {
+    if (!waitForFilesToShowUpAt(
+        outputPath2, outputPrefix2, Duration.ofMinutes(10), latestPredicate)) {
       Assert.fail("Unable to find latest mutation: " + expected);
     }
     Assert.assertTrue(latestPredicate.getEarliestCommitTime() >= microsCutoff);
@@ -497,11 +504,11 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     BigtableTableSpec cdcTableSpec = new BigtableTableSpec();
     cdcTableSpec.setCdcEnabled(true);
-    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[]{}));
+    cdcTableSpec.setColumnFamilies(Lists.asList(SOURCE_COLUMN_FAMILY, new String[] {}));
     // bigtableResourceManager.createTable(SOURCE_CDC_TABLE, cdcTableSpec);
 
     bigtableResourceManager.createAppProfile(
-        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[]{}));
+        appProfileId, true, Lists.asList(CLUSTER_NAME, new String[] {}));
 
     String persistentName = UUID.randomUUID().toString();
 
@@ -547,15 +554,17 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
 
     bigtableResourceManager.write(rowMutation);
 
-    if (!waitForFilesToShowUpAt(outputPath, outputPrefix, Duration.ofMinutes(10), new LookForBigtableRowAvroRecord(expected))) {
+    if (!waitForFilesToShowUpAt(
+        outputPath,
+        outputPrefix,
+        Duration.ofMinutes(10),
+        new LookForBigtableRowAvroRecord(expected))) {
       Assert.fail("Unable to find output file containing row mutation: " + expected);
     }
 
-    pipelineLauncher.cancelJob(
-        launchInfo.projectId(), launchInfo.region(), launchInfo.jobId());
+    pipelineLauncher.cancelJob(launchInfo.projectId(), launchInfo.region(), launchInfo.jobId());
 
     waitUntilCancelled(launchInfo, Duration.ofMinutes(10));
-
 
     // Scanning the dir one more time to capture the latest commit time
     var predicate = new LookForBigtableRowAvroRecord(expected);
@@ -576,7 +585,8 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
                     .addParameter("bigtableReadInstanceId", bigtableResourceManager.getInstanceId())
                     .addParameter("bigtableChangeStreamAppProfile", appProfileId)
                     .addParameter("outputFileFormat", "AVRO")
-                    .addParameter("bigtableChangeStreamStartTimestamp",
+                    .addParameter(
+                        "bigtableChangeStreamStartTimestamp",
                         formatTimeMicros(predicate.getEarliestCommitTime() - 1000000))
                     .addParameter("windowDuration", "10s")
                     .addParameter("gcsOutputDirectory", outputPath2)
@@ -585,7 +595,8 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
     assertThatPipeline(launchInfo).isRunning();
 
     var latestPredicate = new LookForBigtableRowAvroRecord(expected);
-    if (!waitForFilesToShowUpAt(outputPath2, outputPrefix2, Duration.ofMinutes(10), latestPredicate)) {
+    if (!waitForFilesToShowUpAt(
+        outputPath2, outputPrefix2, Duration.ofMinutes(10), latestPredicate)) {
       Assert.fail("Unable to find latest mutation: " + expected);
     }
     Assert.assertTrue(latestPredicate.getEarliestCommitTime() > predicate.getLatestCommitTime());
@@ -595,8 +606,9 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
     long started = System.currentTimeMillis();
     while (System.currentTimeMillis() < started + maxWait.toMillis()) {
       try {
-        var state = pipelineLauncher.getJobStatus(TestProperties.project(), TestProperties.region(),
-            launchInfo.jobId());
+        var state =
+            pipelineLauncher.getJobStatus(
+                TestProperties.project(), TestProperties.region(), launchInfo.jobId());
         switch (state) {
           case CANCELLED:
             LOG.info("Job is finally CANCELLED!");
@@ -628,8 +640,8 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
               paramsAdder.apply(
                   LaunchConfig.builder(testName, specPath)
                       .addParameter("bigtableReadTableId", SOURCE_CDC_TABLE)
-                      .addParameter("bigtableReadInstanceId",
-                          bigtableResourceManager.getInstanceId())
+                      .addParameter(
+                          "bigtableReadInstanceId", bigtableResourceManager.getInstanceId())
                       .addParameter("bigtableChangeStreamAppProfile", "anything")
                       .addParameter("outputFileFormat", "TEXT")
                       .addParameter("windowDuration", "10s")
@@ -640,12 +652,12 @@ public final class BigtableChangeStreamsToGcsIT extends TemplateTestBase {
     }
   }
 
-
   private ByteBuffer bb(String value) {
     return ByteBuffer.wrap(value.getBytes(Charset.defaultCharset()));
   }
 
-  private boolean waitForFilesToShowUpAt(String outputPath, String outputPrefix, Duration howLong, Predicate<? super Blob> checkFile)
+  private boolean waitForFilesToShowUpAt(
+      String outputPath, String outputPrefix, Duration howLong, Predicate<? super Blob> checkFile)
       throws Exception {
     long polUntil = System.currentTimeMillis() + howLong.toMillis();
 

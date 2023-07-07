@@ -20,7 +20,6 @@ import com.google.cloud.teleport.bigtable.ChangelogEntryJson;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.nio.charset.Charset;
-import java.util.function.Predicate;
 import org.junit.Assert;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

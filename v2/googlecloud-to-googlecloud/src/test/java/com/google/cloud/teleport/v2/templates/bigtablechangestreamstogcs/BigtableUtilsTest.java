@@ -385,6 +385,4 @@ public class BigtableUtilsTest {
         .setTimestampTo(null)
         .build();
   }
-
-
 }

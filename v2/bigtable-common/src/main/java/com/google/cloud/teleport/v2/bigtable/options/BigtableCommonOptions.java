@@ -285,9 +285,10 @@ public interface BigtableCommonOptions extends GcpOptions {
         order = 9,
         optional = true,
         description = "Resume streaming with the same change stream name",
-        helpText = "Used when pipeline is restarted to continue streaming from the latest "
-            + "checkpoint. Defaults to false. When set to true, creating a pipeline with the "
-            + "same change stream name is allowed.")
+        helpText =
+            "Used when pipeline is restarted to continue streaming from the latest "
+                + "checkpoint. Defaults to false. When set to true, creating a pipeline with the "
+                + "same change stream name is allowed.")
     @Default.Boolean(false)
     Boolean getBigtableChangeStreamResume();
 

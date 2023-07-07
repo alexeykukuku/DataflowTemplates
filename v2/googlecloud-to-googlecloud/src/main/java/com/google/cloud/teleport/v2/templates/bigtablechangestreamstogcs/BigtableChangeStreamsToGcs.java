@@ -159,7 +159,8 @@ public class BigtableChangeStreamsToGcs {
                 .withProjectId(projectId)
                 .withChangeStreamName(options.getBigtableChangeStreamName())
                 .withExistingPipelineOptions(
-                    options.getBigtableChangeStreamResume() ? ExistingPipelineOptions.RESUME_OR_FAIL
+                    options.getBigtableChangeStreamResume()
+                        ? ExistingPipelineOptions.RESUME_OR_FAIL
                         : ExistingPipelineOptions.FAIL_IF_EXISTS)
                 .withAppProfileId(options.getBigtableChangeStreamAppProfile())
                 .withInstanceId(options.getBigtableReadInstanceId())
