@@ -47,7 +47,7 @@ public class BigQueryDestinationTest {
             null);
 
     Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.IS_GC));
-    Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.BQ_COMMIT_TIMESTAMP));
+    // Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.BQ_COMMIT_TIMESTAMP));
     Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.SOURCE_CLUSTER));
     Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.SOURCE_INSTANCE));
     Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.SOURCE_TABLE));
@@ -87,7 +87,7 @@ public class BigQueryDestinationTest {
             null);
 
     Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.IS_GC));
-    Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.BQ_COMMIT_TIMESTAMP));
+    // Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.BQ_COMMIT_TIMESTAMP));
     Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.SOURCE_CLUSTER));
     Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.SOURCE_INSTANCE));
     Assert.assertTrue(destinationInfo.isColumnEnabled(ChangelogColumn.SOURCE_TABLE));
@@ -122,7 +122,7 @@ public class BigQueryDestinationTest {
                 + "big_query_commit_timestamp,tiebreaker");
 
     Assert.assertFalse(destinationInfo.isColumnEnabled(ChangelogColumn.IS_GC));
-    Assert.assertFalse(destinationInfo.isColumnEnabled(ChangelogColumn.BQ_COMMIT_TIMESTAMP));
+    // Assert.assertFalse(destinationInfo.isColumnEnabled(ChangelogColumn.BQ_COMMIT_TIMESTAMP));
     Assert.assertFalse(destinationInfo.isColumnEnabled(ChangelogColumn.SOURCE_CLUSTER));
     Assert.assertFalse(destinationInfo.isColumnEnabled(ChangelogColumn.SOURCE_INSTANCE));
     Assert.assertFalse(destinationInfo.isColumnEnabled(ChangelogColumn.SOURCE_TABLE));

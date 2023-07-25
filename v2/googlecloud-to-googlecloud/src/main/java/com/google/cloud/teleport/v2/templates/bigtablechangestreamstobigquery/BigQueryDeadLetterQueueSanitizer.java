@@ -18,7 +18,7 @@ package com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.cloud.teleport.v2.cdc.dlq.DeadLetterQueueSanitizer;
 import com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.model.TransientColumn;
-import org.apache.beam.sdk.io.gcp.bigquery.BigQueryInsertError;
+import org.apache.beam.sdk.io.gcp.bigquery.BigQueryStorageApiInsertError;
 
 /**
  * Class {@link BigQueryDeadLetterQueueSanitizer} cleans and prepares failed BigQuery inserts to be
@@ -26,12 +26,12 @@ import org.apache.beam.sdk.io.gcp.bigquery.BigQueryInsertError;
  * be a String unless your override formatMessage().
  */
 public final class BigQueryDeadLetterQueueSanitizer
-    extends DeadLetterQueueSanitizer<BigQueryInsertError, String> {
+    extends DeadLetterQueueSanitizer<BigQueryStorageApiInsertError, String> {
 
   public BigQueryDeadLetterQueueSanitizer() {}
 
   @Override
-  public String getJsonMessage(BigQueryInsertError input) {
+  public String getJsonMessage(BigQueryStorageApiInsertError input) {
     TableRow tableRow = input.getRow();
     // Extract the original payload from the {@link TableRow}.
     return (String)
@@ -39,7 +39,7 @@ public final class BigQueryDeadLetterQueueSanitizer
   }
 
   @Override
-  public String getErrorMessageJson(BigQueryInsertError input) {
-    return input.getError().toString();
+  public String getErrorMessageJson(BigQueryStorageApiInsertError input) {
+    return input.getErrorMessage();
   }
 }

@@ -171,7 +171,6 @@ public class BigQueryUtils implements Serializable {
     FORMATTERS.put(
         ChangelogColumn.TIEBREAKER,
         (bq, chg) -> Long.toString(chg.getLong(ChangelogColumn.TIEBREAKER.name())));
-    FORMATTERS.put(ChangelogColumn.BQ_COMMIT_TIMESTAMP, (bq, chg) -> "AUTO");
 
     // Just in case, validate that every column in the enum has a formatter
     for (ChangelogColumn column : ChangelogColumn.values()) {

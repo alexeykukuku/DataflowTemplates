@@ -276,7 +276,8 @@ public final class BigtableChangeStreamsToBigQuery {
                     .withCreateDisposition(CreateDisposition.CREATE_IF_NEEDED)
                     .withWriteDisposition(WriteDisposition.WRITE_APPEND)
                     .withExtendedErrorInfo()
-                    .withMethod(Write.Method.STREAMING_INSERTS)
+                    .withMethod(Write.Method.STORAGE_API_AT_LEAST_ONCE)
+                    .withNumStorageWriteApiStreams(0)
                     .withFailedInsertRetryPolicy(InsertRetryPolicy.retryTransientErrors()));
 
     PCollection<String> transformDlqJson =
@@ -287,8 +288,7 @@ public final class BigtableChangeStreamsToBigQuery {
                 MapElements.via(new StringDeadLetterQueueSanitizer()));
 
     PCollection<String> bqWriteDlqJson =
-        writeResult
-            .getFailedInsertsWithErr()
+        writeResult.getFailedStorageApiInserts()
             .apply(
                 "Failed Mod JSON During BigQuery Writes",
                 MapElements.via(new BigQueryDeadLetterQueueSanitizer()));

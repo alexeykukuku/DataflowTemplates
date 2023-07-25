@@ -37,9 +37,7 @@ public enum ChangelogColumn {
   SOURCE_INSTANCE("source_instance", StandardSQLTypeName.STRING.name(), true, true),
   SOURCE_CLUSTER("source_cluster", StandardSQLTypeName.STRING.name(), true, true),
   SOURCE_TABLE("source_table", StandardSQLTypeName.STRING.name(), true, true),
-  TIEBREAKER("tiebreaker", StandardSQLTypeName.INT64.name(), true, true),
-  BQ_COMMIT_TIMESTAMP(
-      "big_query_commit_timestamp", StandardSQLTypeName.TIMESTAMP.name(), true, true);
+  TIEBREAKER("tiebreaker", StandardSQLTypeName.INT64.name(), true, true);
 
   private final String bqColumnName;
   private final String bqType;
