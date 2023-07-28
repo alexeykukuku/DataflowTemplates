@@ -51,6 +51,7 @@ public class BigQueryUtils implements Serializable {
 
   private static final ThreadLocal<ObjectMapper> OBJECT_MAPPER =
       ThreadLocal.withInitial(ObjectMapper::new);
+
   private static final EnumMap<ChangelogColumn, BigQueryValueFormatter> FORMATTERS =
       new EnumMap<>(ChangelogColumn.class);
 
