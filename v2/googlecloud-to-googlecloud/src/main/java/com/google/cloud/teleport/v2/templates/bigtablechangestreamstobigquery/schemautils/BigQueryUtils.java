@@ -15,7 +15,6 @@
  */
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.schemautils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
@@ -48,9 +47,6 @@ import org.json.JSONObject;
 public class BigQueryUtils implements Serializable {
 
   public static final String ANY_COLUMN_FAMILY = "*";
-
-  private static final ThreadLocal<ObjectMapper> OBJECT_MAPPER =
-      ThreadLocal.withInitial(ObjectMapper::new);
 
   private static final EnumMap<ChangelogColumn, BigQueryValueFormatter> FORMATTERS =
       new EnumMap<>(ChangelogColumn.class);
@@ -235,15 +231,11 @@ public class BigQueryUtils implements Serializable {
     return columnFamilies.contains(columnFamily) || columnFamilies.contains(ANY_COLUMN_FAMILY);
   }
 
-  public boolean setTableRowFields(Mod mod, TableRow tableRow) throws Exception {
-    return setTableRowFields(mod.getChangeJson(), tableRow);
-  }
-
   /**
    * @return true if modification should be written to BigQuery, false otherwise
    */
-  public boolean setTableRowFields(String changeJson, TableRow tableRow) throws Exception {
-    JSONObject changeJsonParsed = new JSONObject(changeJson);
+  public boolean setTableRowFields(Mod mod, TableRow tableRow) throws Exception {
+    JSONObject changeJsonParsed = new JSONObject(mod.getChangeJson());
 
     String columnFamily = null;
     if (hasIgnoredColumnFamilies() && changeJsonParsed.has(ChangelogColumn.COLUMN_FAMILY.name())) {
