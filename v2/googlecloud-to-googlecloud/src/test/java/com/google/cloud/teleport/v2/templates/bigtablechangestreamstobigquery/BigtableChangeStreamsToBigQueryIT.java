@@ -138,8 +138,6 @@ public final class BigtableChangeStreamsToBigQueryIT extends TemplateTestBase {
                   fvl.get(ChangelogColumn.TIMESTAMP.getBqColumnName()).getTimestampValue()
                       >= timeNowMicros);
               Assert.assertFalse(
-                  fvl.get(ChangelogColumn.BQ_COMMIT_TIMESTAMP.getBqColumnName()).isNull());
-              Assert.assertFalse(
                   fvl.get(ChangelogColumn.IS_GC.getBqColumnName()).getBooleanValue());
               Assert.assertTrue(fvl.get(ChangelogColumn.TIMESTAMP_FROM.getBqColumnName()).isNull());
               Assert.assertTrue(fvl.get(ChangelogColumn.TIMESTAMP_TO.getBqColumnName()).isNull());
@@ -243,8 +241,6 @@ public final class BigtableChangeStreamsToBigQueryIT extends TemplateTestBase {
                   fvl.get(ChangelogColumn.TIMESTAMP.getBqColumnName()).getTimestampValue()
                       >= timeNowMicros);
               Assert.assertFalse(
-                  fvl.get(ChangelogColumn.BQ_COMMIT_TIMESTAMP.getBqColumnName()).isNull());
-              Assert.assertFalse(
                   fvl.get(ChangelogColumn.IS_GC.getBqColumnName()).getBooleanValue());
               Assert.assertTrue(fvl.get(ChangelogColumn.TIMESTAMP_FROM.getBqColumnName()).isNull());
               Assert.assertTrue(fvl.get(ChangelogColumn.TIMESTAMP_TO.getBqColumnName()).isNull());
@@ -345,8 +341,6 @@ public final class BigtableChangeStreamsToBigQueryIT extends TemplateTestBase {
                   fvl.get(ChangelogColumn.TIMESTAMP.getBqColumnName()).getTimestampValue()
                       >= timeNowMicros);
               Assert.assertFalse(
-                  fvl.get(ChangelogColumn.BQ_COMMIT_TIMESTAMP.getBqColumnName()).isNull());
-              Assert.assertFalse(
                   fvl.get(ChangelogColumn.IS_GC.getBqColumnName()).getBooleanValue());
               Assert.assertTrue(fvl.get(ChangelogColumn.TIMESTAMP_FROM.getBqColumnName()).isNull());
               Assert.assertTrue(fvl.get(ChangelogColumn.TIMESTAMP_TO.getBqColumnName()).isNull());
@@ -385,10 +379,7 @@ public final class BigtableChangeStreamsToBigQueryIT extends TemplateTestBase {
         Assert.assertNotNull(severeError);
 
         String errorMessage = severeError.get("error_message").asText();
-        Assert.assertEquals(
-            "GenericData{classInfo=[errors, index], {errors=[GenericData{classInfo="
-                + "[debugInfo, location, message, reason], {reason=row-too-large}}]}}",
-            errorMessage);
+        Assert.assertEquals("Row payload too large. Maximum size 10000000", errorMessage);
         found = true;
       }
 

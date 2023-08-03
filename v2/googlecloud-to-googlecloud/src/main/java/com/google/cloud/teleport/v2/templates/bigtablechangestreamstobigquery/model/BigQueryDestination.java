@@ -15,6 +15,7 @@
  */
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.model;
 
+import com.google.api.services.bigquery.model.TableReference;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TimePartitioning;
 import com.google.common.collect.ImmutableSet;
@@ -172,5 +173,12 @@ public class BigQueryDestination implements Serializable {
 
   public TableId getBigQueryTableId() {
     return TableId.of(bigQueryProject, bigQueryDataset, bigQueryTableName);
+  }
+
+  public TableReference getBigQueryTableReference() {
+    return new TableReference()
+        .setProjectId(bigQueryProject)
+        .setDatasetId(bigQueryDataset)
+        .setTableId(bigQueryTableName);
   }
 }

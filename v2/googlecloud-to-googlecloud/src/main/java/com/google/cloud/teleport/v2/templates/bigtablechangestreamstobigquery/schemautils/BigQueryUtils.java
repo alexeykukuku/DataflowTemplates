@@ -15,17 +15,16 @@
  */
 package com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.schemautils;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.bigquery.model.TableFieldSchema;
 import com.google.api.services.bigquery.model.TableRow;
 import com.google.api.services.bigquery.model.TableSchema;
 import com.google.api.services.bigquery.model.TimePartitioning;
 import com.google.cloud.bigquery.Field;
-import com.google.cloud.bigquery.TableId;
 import com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.model.BigQueryDestination;
 import com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.model.BigtableSource;
 import com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.model.ChangelogColumn;
 import com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.model.Mod;
-import com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.model.TransientColumn;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.Serializable;
@@ -39,13 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import org.apache.beam.sdk.io.gcp.bigquery.DynamicDestinations;
-import org.apache.beam.sdk.io.gcp.bigquery.TableDestination;
-import org.apache.beam.sdk.values.KV;
-import org.apache.beam.sdk.values.ValueInSingleWindow;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
-import org.joda.time.Instant;
 import org.json.JSONObject;
 
 /**
@@ -55,6 +49,8 @@ public class BigQueryUtils implements Serializable {
 
   public static final String ANY_COLUMN_FAMILY = "*";
 
+  private static final ThreadLocal<ObjectMapper> OBJECT_MAPPER =
+      ThreadLocal.withInitial(ObjectMapper::new);
   private static final EnumMap<ChangelogColumn, BigQueryValueFormatter> FORMATTERS =
       new EnumMap<>(ChangelogColumn.class);
 
@@ -171,11 +167,13 @@ public class BigQueryUtils implements Serializable {
     FORMATTERS.put(
         ChangelogColumn.TIEBREAKER,
         (bq, chg) -> Long.toString(chg.getLong(ChangelogColumn.TIEBREAKER.name())));
-    FORMATTERS.put(ChangelogColumn.BQ_COMMIT_TIMESTAMP, (bq, chg) -> "AUTO");
+    FORMATTERS.put(ChangelogColumn.BQ_COMMIT_TIMESTAMP, (bq, chg) -> null);
 
     // Just in case, validate that every column in the enum has a formatter
     for (ChangelogColumn column : ChangelogColumn.values()) {
-      Validate.notNull(FORMATTERS.get(column));
+      if (StringUtils.isBlank(column.getDefaultValueExpression())) {
+        Validate.notNull(FORMATTERS.get(column));
+      }
     }
   }
 
@@ -236,12 +234,15 @@ public class BigQueryUtils implements Serializable {
     return columnFamilies.contains(columnFamily) || columnFamilies.contains(ANY_COLUMN_FAMILY);
   }
 
+  public boolean setTableRowFields(Mod mod, TableRow tableRow) throws Exception {
+    return setTableRowFields(mod.getChangeJson(), tableRow);
+  }
+
   /**
    * @return true if modification should be written to BigQuery, false otherwise
    */
-  public boolean setTableRowFields(Mod mod, String modJsonString, TableRow tableRow)
-      throws Exception {
-    JSONObject changeJsonParsed = new JSONObject(mod.getChangeJson());
+  public boolean setTableRowFields(String changeJson, TableRow tableRow) throws Exception {
+    JSONObject changeJsonParsed = new JSONObject(changeJson);
 
     String columnFamily = null;
     if (hasIgnoredColumnFamilies() && changeJsonParsed.has(ChangelogColumn.COLUMN_FAMILY.name())) {
@@ -261,49 +262,25 @@ public class BigQueryUtils implements Serializable {
       }
     }
 
-    if (!matchesTimeInterval(mod, source.getStartTimestamp())) {
-      return false;
-    }
-
     for (ChangelogColumn column : configuredChangelogColumns) {
       BigQueryValueFormatter formatter = FORMATTERS.get(column);
       // .format might throw RuntimeException
       Object value = formatter.format(this, changeJsonParsed);
 
-      if (value == null && column.isRequired()) {
-        throw new IllegalArgumentException(
-            "Cannot find value for column " + column.getBqColumnName());
+      if (value == null) {
+        if (column.isRequired()) {
+          throw new IllegalArgumentException(
+              "Cannot find value for column " + column.getBqColumnName());
+        }
+        // Skip setting column for null value.
+      } else {
+        tableRow.set(column.getBqColumnName(), value);
       }
-      tableRow.set(column.getBqColumnName(), value);
-    }
-
-    // Metadata columns, not written to BQ
-    tableRow.set(
-        TransientColumn.BQ_CHANGELOG_FIELD_NAME_ORIGINAL_PAYLOAD_JSON.getColumnName(),
-        modJsonString);
-    return true;
-  }
-
-  private boolean matchesTimeInterval(Mod mod, Instant startTimestamp) {
-    long commitSec = mod.getCommitTimestampSeconds();
-    long commitNanos = mod.getCommitTimestampNanos();
-    long minCutoffSec = startTimestamp.getMillis() / 1000;
-    long minCutoffNanos = (startTimestamp.getMillis() % 1000) * 1000000;
-
-    if (commitSec < (startTimestamp.getMillis() / 1000)) {
-      return false;
-    }
-    if (commitSec == minCutoffSec && commitNanos < minCutoffNanos) {
-      return false;
     }
     return true;
   }
 
-  public BigQueryDynamicDestinations getDynamicDestinations() {
-    return new BigQueryDynamicDestinations();
-  }
-
-  private TableSchema getDestinationTableSchema() {
+  public TableSchema getDestinationTableSchema() {
     return new TableSchema().setFields(getDestinationTableFields());
   }
 
@@ -315,6 +292,7 @@ public class BigQueryUtils implements Serializable {
           new TableFieldSchema()
               .setName(column.getBqColumnName())
               .setType(column.getBqType())
+              .setDefaultValueExpression(column.getDefaultValueExpression())
               .setMode(
                   (column.isRequired() ? Field.Mode.REQUIRED.name() : Field.Mode.NULLABLE.name())));
     }
@@ -335,45 +313,15 @@ public class BigQueryUtils implements Serializable {
     return Base64.getDecoder().decode(base64String);
   }
 
-  /**
-   * The {@link BigQueryDynamicDestinations} loads into BigQuery tables in a dynamic fashion. The
-   * destination table is always the same, but we'll be using DynamicDestinations to enable
-   * partitioning / clustering and other BigQuery table features if necessary which otherwise are
-   * not present in TableSchema
-   */
-  public final class BigQueryDynamicDestinations
-      extends DynamicDestinations<TableRow, KV<TableId, TableRow>> {
-
-    private BigQueryDynamicDestinations() {}
-
-    @Override
-    public KV<TableId, TableRow> getDestination(ValueInSingleWindow<TableRow> element) {
-      TableRow tableRow = element.getValue();
-      return KV.of(BigQueryUtils.this.destination.getBigQueryTableId(), tableRow);
+  public TimePartitioning getTimePartitioning() {
+    TimePartitioning timePartitioning = null;
+    if (destination.isPartitioned()) {
+      timePartitioning = new TimePartitioning();
+      timePartitioning.setType(destination.getBigQueryChangelogTablePartitionType());
+      timePartitioning.setExpirationMs(
+          destination.getBigQueryChangelogTablePartitionExpirationMs());
+      timePartitioning.setField(destination.getPartitionByColumnName());
     }
-
-    @Override
-    public TableDestination getTable(KV<TableId, TableRow> destination) {
-      TableId tableId = BigQueryUtils.this.destination.getBigQueryTableId();
-      String tableName =
-          String.format("%s.%s.%s", tableId.getProject(), tableId.getDataset(), tableId.getTable());
-
-      TimePartitioning timePartitioning = null;
-      if (BigQueryUtils.this.destination.isPartitioned()) {
-        timePartitioning = new TimePartitioning();
-        timePartitioning.setType(
-            BigQueryUtils.this.destination.getBigQueryChangelogTablePartitionType());
-        timePartitioning.setExpirationMs(
-            BigQueryUtils.this.destination.getBigQueryChangelogTablePartitionExpirationMs());
-        timePartitioning.setField(BigQueryUtils.this.destination.getPartitionByColumnName());
-      }
-
-      return new TableDestination(tableName, "BigQuery changelog table.", timePartitioning);
-    }
-
-    @Override
-    public TableSchema getSchema(KV<TableId, TableRow> destination) {
-      return BigQueryUtils.this.getDestinationTableSchema();
-    }
+    return timePartitioning;
   }
 }
