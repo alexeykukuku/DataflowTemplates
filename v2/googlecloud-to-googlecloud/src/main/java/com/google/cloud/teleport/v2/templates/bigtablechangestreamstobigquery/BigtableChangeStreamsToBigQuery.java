@@ -27,7 +27,6 @@ import com.google.cloud.teleport.metadata.TemplateCategory;
 import com.google.cloud.teleport.v2.bigtable.options.BigtableCommonOptions.ReadChangeStreamOptions;
 import com.google.cloud.teleport.v2.bigtable.options.BigtableCommonOptions.ReadOptions;
 import com.google.cloud.teleport.v2.cdc.dlq.DeadLetterQueueManager;
-import com.google.cloud.teleport.v2.coders.FailsafeElementCoder;
 import com.google.cloud.teleport.v2.options.BigtableChangeStreamToBigQueryOptions;
 import com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.model.BigQueryDestination;
 import com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.model.BigtableSource;
@@ -36,13 +35,11 @@ import com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.mo
 import com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.model.UnsupportedEntryException;
 import com.google.cloud.teleport.v2.templates.bigtablechangestreamstobigquery.schemautils.BigQueryUtils;
 import com.google.cloud.teleport.v2.transforms.DLQWriteTransform;
-import com.google.cloud.teleport.v2.values.FailsafeElement;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
 import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.PipelineResult;
-import org.apache.beam.sdk.coders.StringUtf8Coder;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write;
 import org.apache.beam.sdk.io.gcp.bigquery.BigQueryIO.Write.CreateDisposition;
@@ -88,11 +85,6 @@ import org.slf4j.LoggerFactory;
     flexContainerName = "bigtable-changestreams-to-bigquery",
     contactInformation = "https://cloud.google.com/support")
 public final class BigtableChangeStreamsToBigQuery {
-
-  /** String/String Coder for {@link FailsafeElement}. */
-  public static final FailsafeElementCoder<String, String> FAILSAFE_ELEMENT_CODER =
-      FailsafeElementCoder.of(StringUtf8Coder.of(), StringUtf8Coder.of());
-
   private static final Logger LOG = LoggerFactory.getLogger(BigtableChangeStreamsToBigQuery.class);
 
   private static final String USE_RUNNER_V2_EXPERIMENT = "use_runner_v2";
@@ -125,7 +117,7 @@ public final class BigtableChangeStreamsToBigQuery {
     }
     boolean hasUseRunnerV2 = false;
     for (String experiment : experiments) {
-      if (experiment.toLowerCase().equals(USE_RUNNER_V2_EXPERIMENT)) {
+      if (experiment.equalsIgnoreCase(USE_RUNNER_V2_EXPERIMENT)) {
         hasUseRunnerV2 = true;
         break;
       }

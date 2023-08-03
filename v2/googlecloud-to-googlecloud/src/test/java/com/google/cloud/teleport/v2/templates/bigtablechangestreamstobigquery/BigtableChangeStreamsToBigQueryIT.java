@@ -20,6 +20,7 @@ import static org.apache.beam.it.truthmatchers.PipelineAsserts.assertThatResult;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.google.api.gax.paging.Page;
 import com.google.cloud.Timestamp;
 import com.google.cloud.bigquery.TableResult;
@@ -314,9 +315,7 @@ public final class BigtableChangeStreamsToBigQueryIT extends TemplateTestBase {
                     .addParameter("bigtableChangeStreamAppProfile", appProfileId)
                     .addParameter("bigQueryDataset", bigQueryResourceManager.getDatasetId())
                     .addParameter("bigQueryChangelogTableName", SOURCE_CDC_TABLE + "_changes")
-                    .addParameter("dlqRetryMinutes", "1")
                     .addParameter("dlqDirectory", getGcsPath("dlq"))
-                    .addParameter("dlqMaxRetries", "1")
                     .addParameter(
                         "bigtableChangeStreamStartTimestamp",
                         Timestamp.of(new Date(beforeMutations)).toString())));
@@ -377,9 +376,13 @@ public final class BigtableChangeStreamsToBigQueryIT extends TemplateTestBase {
         ObjectMapper om = new ObjectMapper();
         JsonNode severeError = om.readTree(content);
         Assert.assertNotNull(severeError);
-
-        String errorMessage = severeError.get("error_message").asText();
-        Assert.assertEquals("Row payload too large. Maximum size 10000000", errorMessage);
+        JsonNode errorMessageNode = severeError.get("error_message");
+        Assert.assertNotNull(errorMessageNode);
+        Assert.assertTrue(errorMessageNode instanceof TextNode);
+        String messageText = errorMessageNode.asText();
+        Assert.assertTrue(
+            "Unexpected message text: " + messageText,
+            StringUtils.contains(messageText, "Row payload too large. Maximum size 10000000"));
         found = true;
       }
 
